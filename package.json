@@ -1,0 +1,34 @@
+{
+  "name": "snes-retro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Retro SNES-inspired frontend (React + Vite + Tailwind)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "nostalgist": "^0.16.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.21",
+    "tailwindcss": "^3.4.8",
+    "vite": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": [
+    "snes",
+    "retro",
+    "react",
+    "vite",
+    "tailwindcss"
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,212 @@
+/* src/index.css
+   - Tailwind base, components, and utilities import.
+   - Add any global styles or font fallbacks below.
+*/
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Press Start 2P', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial;
+}
+
+/* CRT and neon utility classes extracted from inline styles */
+.crt-root { font-family: 'Press Start 2P', monospace; }
+
+.vignette {
+  background: radial-gradient(ellipse at center, rgba(20,255,200,0.03) 0%, rgba(0,0,0,0.65) 60%);
+  mix-blend-mode: overlay;
+}
+
+.scanlines {
+  background-image: repeating-linear-gradient( to bottom, rgba(255,255,255,0.02) 0px, rgba(0,0,0,0.02) 1px );
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+}
+
+.neon-title {
+  color: #8effd6;
+  text-shadow: 0 0 18px rgba(102,255,204,0.95), 0 0 6px rgba(0,0,0,0.6);
+  letter-spacing: 0.06em;
+}
+
+.neon-button {
+  background: linear-gradient(90deg, rgba(0,255,200,0.12), rgba(0,180,255,0.06));
+  border: 2px solid rgba(0,255,200,0.28);
+  padding: 18px 44px;
+  border-radius: 10px;
+  color: #e8fff7;
+  font-size: 14px;
+  box-shadow: 0 6px 30px rgba(0,255,200,0.14), inset 0 0 18px rgba(0,255,200,0.04);
+  text-shadow: 0 0 14px rgba(102,255,204,0.95), 0 0 6px rgba(0,0,0,0.6);
+  letter-spacing: 0.07em;
+  font-family: 'Press Start 2P', monospace;
+}
+
+.crt-bezel {
+  box-shadow: 0 20px 60px rgba(0, 200, 170, 0.07), 0 6px 20px rgba(0,0,0,0.6);
+  background: linear-gradient(180deg, rgba(8,20,24,0.9), rgba(2,6,8,0.85));
+  padding: 14px;
+  border-radius: 0.75rem;
+}
+
+.crt-screen {
+  border-radius: 12px;
+  box-shadow: inset 0 0 30px rgba(0,255,200,0.03), inset 0 -10px 40px rgba(0,0,0,0.6);
+  transform: perspective(800px) rotateX(1.5deg);
+  -webkit-transform: perspective(800px) rotateX(1.5deg);
+}
+
+.canvas-style {
+  image-rendering: pixelated;
+  display: block;
+  border-radius: 8px;
+}
+
+.scanline-overlay {
+  mix-blend-mode: overlay;
+  background-image: repeating-linear-gradient( to bottom, rgba(255,255,255,0.02) 0px, rgba(0,0,0,0.02) 1px );
+  opacity: 0.12;
+}
+
+/* 90s gaming room backdrop */
+.room-backdrop {
+  background: radial-gradient(ellipse at 10% 10%, rgba(255,200,0,0.06) 0%, transparent 10%),
+              radial-gradient(ellipse at 90% 90%, rgba(120,60,255,0.03) 0%, transparent 10%),
+              linear-gradient(180deg, #071018 0%, #05030a 100%);
+  min-height: 100vh;
+  padding: 40px 24px;
+}
+
+/* TV frame */
+.tv-frame {
+  width: 720px;
+  max-width: calc(100vw - 48px);
+  margin: 0 auto;
+  position: relative;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #111 0%, #080808 100%);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.7), 0 10px 30px rgba(0,0,0,0.6), inset 0 2px 10px rgba(255,255,255,0.02);
+  padding: 26px 22px 80px 22px; /* extra bottom space for TV buttons */
+}
+
+.tv-screen-window {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  width: 100%;
+  height: 480px;
+  display: block;
+  position: relative;
+  box-shadow: 0 8px 30px rgba(0,200,170,0.06), inset 0 0 80px rgba(0,255,200,0.02);
+}
+
+/* Subtle CRT flicker animation */
+@keyframes crtFlicker {
+  0% { opacity: 0.98; }
+  10% { opacity: 0.94; }
+  20% { opacity: 0.98; }
+  30% { opacity: 0.96; }
+  40% { opacity: 0.99; }
+  100% { opacity: 0.98; }
+}
+.crt-flicker {
+  animation: crtFlicker 3s infinite;
+}
+
+/* Decorative tape deck and posters */
+.tape-deck {
+  width: 140px;
+  height: 60px;
+  background: linear-gradient(90deg, #222, #111);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #bfffe8;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+}
+
+.posters { display:flex; gap:8px; margin-bottom:12px; }
+.poster { width:80px; height:48px; background: linear-gradient(180deg,#3b0,#06a); border-radius:6px; box-shadow: inset 0 -6px 12px rgba(0,0,0,0.3); }
+
+/* Responsive tweaks */
+@media (max-width: 900px) {
+  .room-decor { flex-direction: column; align-items: center; }
+  .controls-area { width: 100%; max-width: none; }
+  .tv-frame { width: 100%; padding-bottom: 120px; }
+  .tv-screen-window { height: 320px; }
+}
+
+/* Decorative TV buttons area */
+.tv-buttons {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.tv-button {
+  background: linear-gradient(180deg, #222, #000);
+  border: 2px solid rgba(255,255,255,0.04);
+  width: 84px;
+  height: 36px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #bfffe8;
+  cursor: pointer;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,200,0.06);
+}
+
+/* Side control panel */
+.control-panel {
+  width: 320px;
+  max-width: 32vw;
+  background: linear-gradient(180deg, rgba(10,10,10,0.9), rgba(3,3,3,0.95));
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+}
+
+.control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
+}
+
+.mapping-btn {
+  background: rgba(0,255,200,0.06);
+  color: #bfffe8;
+  border: 1px solid rgba(0,255,200,0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+}
+
+.room-decor {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.tv-area { flex: 0 0 auto; }
+.controls-area { flex: 0 0 auto; }
+
+
+
