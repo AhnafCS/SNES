@@ -92,10 +92,15 @@ export default function EmulatorScreen() {
         // Pass the canvas element directly to satisfy Nostalgist's element check
         element: document.getElementById('nostalgist-canvas'),
         rom: file,
-        // Performance optimizations
+        // Performance optimizations for mobile
         retroarchConfig: {
           video_vsync: true, // Keep vsync enabled for proper frame pacing
           video_threaded: true, // Enable threaded video for smoother rendering
+          video_smooth: false, // Disable bilinear filtering for better performance
+          video_frame_delay: 0, // Reduce input lag
+          audio_latency: 64, // Lower audio latency for better sync (default is higher)
+          rewind_enable: false, // Disable rewind to save memory
+          savestate_thumbnail_enable: false, // Disable thumbnails to save processing
         },
       });
 
@@ -407,10 +412,19 @@ export default function EmulatorScreen() {
   }, []);
 
   // Gamepad handling: poll connected gamepads and forward inputs
-  // Reduced polling frequency for better performance on weak devices
+  // Only poll if gamepads are actually connected to save resources
   useEffect(() => {
     let intervalId = null;
+    let hasGamepad = false;
+
+    const checkGamepads = () => {
+      const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+      hasGamepad = gps.some(gp => gp !== null);
+    };
+
     const pollGamepad = () => {
+      if (!hasGamepad) return; // Skip if no gamepad connected
+      
       const gps = navigator.getGamepads ? navigator.getGamepads() : [];
       for (const gp of gps) {
         if (!gp) continue;
@@ -440,9 +454,18 @@ export default function EmulatorScreen() {
       }
     };
 
-    // Poll every 16ms (~60fps) instead of every frame for better performance
+    // Check for gamepads on connect/disconnect
+    window.addEventListener('gamepadconnected', checkGamepads);
+    window.addEventListener('gamepaddisconnected', checkGamepads);
+    checkGamepads();
+
+    // Poll every 16ms (~60fps) only if gamepad is connected
     intervalId = setInterval(pollGamepad, 16);
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('gamepadconnected', checkGamepads);
+      window.removeEventListener('gamepaddisconnected', checkGamepads);
+    };
   }, []);
 
   // Pointer/touch handlers for on-screen controls
