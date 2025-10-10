@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Nostalgist } from 'nostalgist';
 import { toCoreId } from '../inputMapping';
+import JSZip from 'jszip';
 
 /*
   src/components/EmulatorScreen.jsx
@@ -15,7 +16,7 @@ import { toCoreId } from '../inputMapping';
   - The component cleans up by calling `exit()` on unmount.
 */
 
-export default function EmulatorScreen() {
+export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sfc' }) {
   const containerRef = useRef(null);
   const nostalgistRef = useRef(null);
   const romInputRef = useRef(null);
@@ -95,7 +96,7 @@ export default function EmulatorScreen() {
       }
       
       nostalgistRef.current = await Nostalgist.launch({
-        core: 'snes9x',
+        core: core,
         element: canvas,
         rom: file,
         // Mobile-specific performance optimizations
@@ -212,11 +213,56 @@ export default function EmulatorScreen() {
     return code;
   };
 
+  // Extract ROM from ZIP file
+  const extractRomFromZip = async (zipFile) => {
+    try {
+      const zip = await JSZip.loadAsync(zipFile);
+      
+      // Get list of valid ROM extensions for current core
+      const validExtensions = extensions.split(',').map(ext => ext.trim().toLowerCase());
+      
+      // Find the first file with a valid ROM extension
+      let romFile = null;
+      for (const [filename, file] of Object.entries(zip.files)) {
+        if (!file.dir) {
+          const ext = '.' + filename.split('.').pop().toLowerCase();
+          if (validExtensions.includes(ext)) {
+            const blob = await file.async('blob');
+            romFile = new File([blob], filename, { type: 'application/octet-stream' });
+            break;
+          }
+        }
+      }
+      
+      if (!romFile) {
+        throw new Error('No valid ROM file found in ZIP archive');
+      }
+      
+      return romFile;
+    } catch (err) {
+      console.error('Failed to extract ROM from ZIP:', err);
+      throw err;
+    }
+  };
+
   // File input handler for ROM selection
   const onRomSelected = async (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
-    await launchWithRomFile(f);
+    
+    // Check if it's a ZIP file
+    if (f.name.toLowerCase().endsWith('.zip')) {
+      try {
+        setStatus('loading');
+        const romFile = await extractRomFromZip(f);
+        await launchWithRomFile(romFile);
+      } catch (err) {
+        setErrorMessage('Failed to extract ROM from ZIP: ' + err.message);
+        setStatus('error');
+      }
+    } else {
+      await launchWithRomFile(f);
+    }
   };
 
   // Save mappings to localStorage whenever they change
@@ -708,28 +754,28 @@ export default function EmulatorScreen() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Hidden inputs */}
-      <input ref={romInputRef} type="file" accept=".smc,.sfc,application/octet-stream" className="hidden" onChange={onRomSelected} />
-      <input ref={loadStateInputRef} type="file" accept=".state,application/octet-stream" className="hidden" onChange={onLoadStateFile} />
+        {/* Hidden inputs */}
+        <input ref={romInputRef} type="file" accept={`${extensions},.zip,application/octet-stream,application/zip`} className="hidden" onChange={onRomSelected} />
+        <input ref={loadStateInputRef} type="file" accept=".state,application/octet-stream" className="hidden" onChange={onLoadStateFile} />
 
-      <div className="mt-3 text-xs text-[#9afbd8]/80">
-        Status: {status}
-        {status === 'idle' && <span className="ml-2">(Select a ROM file to begin)</span>}
-      </div>
-      {status === 'error' && (
-        <div className="mt-2 p-3 bg-red-900/60 rounded text-[12px] max-w-xl">
-          <div className="font-bold">Emulator failed to start</div>
-          {errorMessage && <div className="mt-1">{errorMessage}</div>}
-          {errorDetails && (
-            <details className="mt-2 text-xs max-h-40 overflow-auto">
-              <summary>Stack / details</summary>
-              <pre className="whitespace-pre-wrap">{errorDetails}</pre>
-            </details>
-          )}
+        <div className="mt-3 text-xs text-[#9afbd8]/80">
+          Status: {status}
+          {status === 'idle' && <span className="ml-2">(Select a ROM file to begin)</span>}
         </div>
-      )}
+        {status === 'error' && (
+          <div className="mt-2 p-3 bg-red-900/60 rounded text-[12px] max-w-xl">
+            <div className="font-bold">Emulator failed to start</div>
+            {errorMessage && <div className="mt-1">{errorMessage}</div>}
+            {errorDetails && (
+              <details className="mt-2 text-xs max-h-40 overflow-auto">
+                <summary>Stack / details</summary>
+                <pre className="whitespace-pre-wrap">{errorDetails}</pre>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

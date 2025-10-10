@@ -10,10 +10,18 @@ import EmulatorScreen from './components/EmulatorScreen';
 */
 export default function App() {
   const [screen, setScreen] = useState('home');
+  const [selectedCore, setSelectedCore] = useState('snes9x');
+  const [selectedExtensions, setSelectedExtensions] = useState('.smc,.sfc');
+
+  const handleStart = (core, extensions) => {
+    setSelectedCore(core);
+    setSelectedExtensions(extensions);
+    setScreen('emulator');
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white">
-      {screen === 'home' && <HomePage onStart={() => setScreen('emulator')} />}
+      {screen === 'home' && <HomePage onStart={handleStart} />}
       {screen === 'emulator' && (
         <div className="w-full">
           <div className="flex justify-between items-center px-6 py-3">
@@ -24,7 +32,7 @@ export default function App() {
               Back
             </button>
           </div>
-          <EmulatorScreen />
+          <EmulatorScreen core={selectedCore} extensions={selectedExtensions} />
         </div>
       )}
     </div>
