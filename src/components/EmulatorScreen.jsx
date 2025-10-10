@@ -94,9 +94,8 @@ export default function EmulatorScreen() {
         rom: file,
         // Performance optimizations
         retroarchConfig: {
-          video_vsync: false, // Disable vsync for better performance on weak devices
+          video_vsync: true, // Keep vsync enabled for proper frame pacing
           video_threaded: true, // Enable threaded video for smoother rendering
-          audio_sync: false, // Disable audio sync to reduce lag
         },
       });
 
