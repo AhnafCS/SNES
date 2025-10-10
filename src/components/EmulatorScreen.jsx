@@ -82,33 +82,38 @@ export default function EmulatorScreen() {
     if (!file) return;
     setStatus('loading');
 
-    // Debug: ensure the container ref is valid and log helpful info
-    console.log('containerRef.current:', containerRef.current);
-    if (containerRef.current) {
-      console.log('nodeType:', containerRef.current.nodeType, 'tagName:', containerRef.current.tagName);
-    } else {
-      console.warn('containerRef is not attached to DOM yet');
-    }
-
     try {
-      // Nostalgist will fetch the snes9x core via its configured CDN internally
-      // Nostalgist accepts a selector string or an element. Passing a selector
-      // (#nostalgist-container) avoids cases where React ref wrappers confuse
-      // the library. Ensure the container element has the matching id below.
+      // Detect if we're on mobile for performance optimizations
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      const canvas = document.getElementById('nostalgist-canvas');
+      
+      // Reduce canvas resolution on mobile for better performance
+      if (isMobile && canvas) {
+        const scale = window.devicePixelRatio > 1 ? 1 : 1; // Force 1x on mobile
+        canvas.style.imageRendering = 'pixelated'; // Sharp pixels, no smoothing
+      }
+      
       nostalgistRef.current = await Nostalgist.launch({
         core: 'snes9x',
-        // Pass the canvas element directly to satisfy Nostalgist's element check
-        element: document.getElementById('nostalgist-canvas'),
+        element: canvas,
         rom: file,
-        // Performance optimizations for mobile
+        // Mobile-specific performance optimizations
         retroarchConfig: {
-          video_vsync: true, // Keep vsync enabled for proper frame pacing
-          video_threaded: true, // Enable threaded video for smoother rendering
-          video_smooth: false, // Disable bilinear filtering for better performance
-          video_frame_delay: 0, // Reduce input lag
-          audio_latency: 64, // Lower audio latency for better sync (default is higher)
+          video_vsync: true,
+          video_threaded: true,
+          video_smooth: false, // Disable filtering for better performance
+          video_frame_delay: isMobile ? 1 : 0, // Slight delay on mobile to reduce CPU load
+          video_scale: isMobile ? 1 : 2, // Lower resolution scaling on mobile
+          audio_enable: true,
+          audio_sync: true,
+          audio_latency: isMobile ? 128 : 64, // Higher latency on mobile to prevent audio crackling
+          audio_resampler_quality: isMobile ? 1 : 2, // Lower quality resampling on mobile
+          audio_block_frames: isMobile ? 8 : 4, // Larger audio blocks on mobile
           rewind_enable: false, // Disable rewind to save memory
-          savestate_thumbnail_enable: false, // Disable thumbnails to save processing
+          savestate_thumbnail_enable: false, // Disable thumbnails
+          video_max_swapchain_images: isMobile ? 2 : 3, // Reduce buffer on mobile
+          fastforward_ratio: 1.0, // Disable fast forward
         },
       });
 
