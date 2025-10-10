@@ -9,6 +9,7 @@ import react from '@vitejs/plugin-react';
 */
 export default defineConfig({
   plugins: [react()],
+  publicDir: 'Public', // Specify the correct public directory (case-sensitive)
   // You can add server, build, resolve aliases, and other options here.
 });
 

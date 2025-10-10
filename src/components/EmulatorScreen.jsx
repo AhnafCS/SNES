@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Nostalgist } from 'nostalgist';
+import { toCoreId } from '../inputMapping';
 
 /*
   src/components/EmulatorScreen.jsx
@@ -65,6 +66,8 @@ export default function EmulatorScreen() {
   // Core-reported default mappings (queried from Nostalgist instance)
   const [coreMappings, setCoreMappings] = useState(null);
   const [activeButtons, setActiveButtons] = useState({ p1: {}, p2: {} });
+  // Track which D-pad direction is currently active for continuous sliding
+  const activeDpadDirection = useRef(null);
 
   // Launch Nostalgist with a File object (ROM)
   const launchWithRomFile = async (file) => {
@@ -436,121 +439,205 @@ export default function EmulatorScreen() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  // Pointer/touch handlers for on-screen controls
+  const handleVirtualPress = (buttonName, player = 'p1') => {
+    // visual feedback
+    setActiveButtons((prev) => ({ ...prev, [player]: { ...(prev[player] || {}), [buttonName]: true } }));
+    // send pressDown to Nostalgist using central mapping module
+    const id = toCoreId(buttonName, player === 'p2' ? 2 : 1);
+    try {
+      if (nostalgistRef.current && typeof nostalgistRef.current.pressDown === 'function') {
+        nostalgistRef.current.pressDown(id);
+      } else if (nostalgistRef.current && typeof nostalgistRef.current.press === 'function') {
+        nostalgistRef.current.press(id);
+      }
+    } catch (e) {}
+  };
+
+  const handleVirtualRelease = (buttonName, player = 'p1') => {
+    setActiveButtons((prev) => ({ ...prev, [player]: { ...(prev[player] || {}), [buttonName]: false } }));
+    const id = toCoreId(buttonName, player === 'p2' ? 2 : 1);
+    try {
+      if (nostalgistRef.current && typeof nostalgistRef.current.pressUp === 'function') {
+        nostalgistRef.current.pressUp(id);
+      }
+    } catch (e) {}
+  };
+
+  // D-pad continuous sliding: detect which zone the pointer is over
+  const handleDpadMove = (e) => {
+    const dpadEl = e.currentTarget;
+    const rect = dpadEl.getBoundingClientRect();
+    let clientX, clientY;
+    
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const w = rect.width;
+    const h = rect.height;
+    
+    // Determine which zone: divide into 9 regions (3x3 grid)
+    // Center 50% is neutral, outer regions are directional
+    let newDirection = null;
+    const xRatio = x / w;
+    const yRatio = y / h;
+    
+    // Prioritize the strongest direction
+    if (yRatio < 0.33) {
+      newDirection = 'up';
+    } else if (yRatio > 0.67) {
+      newDirection = 'down';
+    } else if (xRatio < 0.33) {
+      newDirection = 'left';
+    } else if (xRatio > 0.67) {
+      newDirection = 'right';
+    }
+    
+    // If direction changed, release old and press new
+    if (newDirection !== activeDpadDirection.current) {
+      if (activeDpadDirection.current) {
+        handleVirtualRelease(activeDpadDirection.current);
+      }
+      if (newDirection) {
+        handleVirtualPress(newDirection);
+      }
+      activeDpadDirection.current = newDirection;
+    }
+  };
+
+  const handleDpadStart = (e) => {
+    e.preventDefault();
+    handleDpadMove(e);
+  };
+
+  const handleDpadEnd = (e) => {
+    e.preventDefault();
+    if (activeDpadDirection.current) {
+      handleVirtualRelease(activeDpadDirection.current);
+      activeDpadDirection.current = null;
+    }
+  };
+
   return (
     <div className="room-backdrop">
       <div className="room-decor">
         <div className="tv-area">
           <div className="tv-frame">
-            <div className="tv-screen-window">
-              {/* Wrapper containing the canvas Nostalgist will render into, plus overlays */}
+            <div className="tv-screen-window crt-flicker">
+              {/* canvas container */}
               <div id="nostalgist-wrapper" className="relative w-full h-full bg-black">
-                {/* Nostalgist requires a canvas element; we create a dedicated canvas */}
                 <canvas id="nostalgist-canvas" ref={containerRef} className="w-full h-full block bg-black" />
-                {/* scanline overlay */}
                 <div className="scanline-overlay absolute inset-0 pointer-events-none" />
               </div>
             </div>
-
-            {/* TV buttons placed at the bottom of the TV frame */}
-            <div className="tv-buttons">
-              <button className="tv-button" onClick={triggerRomPicker}>LOAD</button>
-              <button className="tv-button" onClick={toggleFullscreen}>FULL</button>
-              <button className="tv-button" onClick={saveState}>SAVE</button>
-              <button className="tv-button" onClick={() => loadStateInputRef.current && loadStateInputRef.current.click()}>LOAD</button>
-            </div>
           </div>
-        </div>
 
-        {/* Side controls panel with mapping UI */}
-        <div className="controls-area">
-          <div className="control-panel">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm mb-2">Controls (customizable)</h3>
-              <div className="flex gap-2">
-                <button
-                  className="mapping-btn"
-                  onClick={() => updateCoreMappings()}
-                  title="Query core for its default keyboard mappings"
-                >
-                  Refresh core
-                </button>
-                <button
-                  className="mapping-btn"
-                  onClick={() => {
-                    if (!coreMappings) return alert('Core mappings not available');
-                    // Sync current mappings to core defaults
-                    const synced = { p1: {}, p2: {} };
-                    for (const k of Object.keys(coreMappings.p1 || {})) {
-                      synced.p1[k] = coreMappings.p1[k] ? { code: coreMappings.p1[k] } : null;
-                    }
-                    for (const k of Object.keys(coreMappings.p2 || {})) {
-                      synced.p2[k] = coreMappings.p2[k] ? { code: coreMappings.p2[k] } : null;
-                    }
-                    setMappings(synced);
-                    alert('Synced mappings to core defaults');
-                  }}
-                >
-                  Sync to core
-                </button>
+          {/* buttons above the CRT (positioned via CSS) */}
+          <div className="tv-buttons">
+            <button className="tv-button" onClick={triggerRomPicker}>Load ROM</button>
+            <button className="tv-button" onClick={toggleFullscreen}>Fullscreen</button>
+            <button className="tv-button" onClick={saveState}>Save State</button>
+            <button className="tv-button" onClick={() => loadStateInputRef.current && loadStateInputRef.current.click()}>Load State</button>
+          </div>
+
+          {/* controller below the TV frame (centered) */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+            <div className="controller-area" aria-hidden>
+              {/* Shoulder buttons */}
+              <div className="shoulder-buttons">
+                <div
+                  className={`shoulder-button l ${activeButtons.p1?.l ? 'pressed' : ''}`}
+                  onPointerDown={() => handleVirtualPress('l')}
+                  onPointerUp={() => handleVirtualRelease('l')}
+                  onTouchStart={() => handleVirtualPress('l')}
+                  onTouchEnd={() => handleVirtualRelease('l')}
+                >L</div>
+                <div
+                  className={`shoulder-button r ${activeButtons.p1?.r ? 'pressed' : ''}`}
+                  onPointerDown={() => handleVirtualPress('r')}
+                  onPointerUp={() => handleVirtualRelease('r')}
+                  onTouchStart={() => handleVirtualPress('r')}
+                  onTouchEnd={() => handleVirtualRelease('r')}
+                >R</div>
               </div>
-            </div>
-            {/* Player mappings UI */}
-            <div className="text-xs mb-2 font-bold">Player 1</div>
-            {Object.keys(mappings.p1).map((key) => (
-              <div className="control-row" key={`p1-${key}`}>
-                <div className="capitalize">{key}</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="mapping-btn"
-                    onClick={() => beginRemap({ player: 'p1', key })}
-                  >
-                    {awaiting && awaiting.player === 'p1' && awaiting.key === key ? 'Press a key...' : formatKeyLabel(mappings.p1[key] ? mappings.p1[key].code : null)}
-                  </button>
-                  {/* visual active indicator */}
-                  <div className="w-3 h-3 rounded-full" style={{ background: activeButtons.p1 && activeButtons.p1[key] ? '#8effd6' : 'rgba(255,255,255,0.03)' }} />
-                  {/* show core default if available */}
-                  {coreMappings && coreMappings.p1 && coreMappings.p1[key] && (
-                    <div className="text-[11px] text-[#9afbd8]/60">core: {formatKeyLabel(coreMappings.p1[key])}</div>
-                  )}
-                  <button
-                    className="mapping-btn"
-                    onClick={() => clearMapping({ player: 'p1', key })}
-                  >
-                    Clear
-                  </button>
+
+              {/* Main controls row */}
+              <div className="main-controls-row">
+                <div 
+                  className="dpad"
+                  onPointerDown={handleDpadStart}
+                  onPointerMove={handleDpadMove}
+                  onPointerUp={handleDpadEnd}
+                  onPointerLeave={handleDpadEnd}
+                  onPointerCancel={handleDpadEnd}
+                  onTouchStart={handleDpadStart}
+                  onTouchMove={handleDpadMove}
+                  onTouchEnd={handleDpadEnd}
+                  onTouchCancel={handleDpadEnd}
+                >
+                  {/* Visual indicators for active directions */}
+                  <div className={`dpad-zone up ${activeButtons.p1?.up ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone down ${activeButtons.p1?.down ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone left ${activeButtons.p1?.left ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone right ${activeButtons.p1?.right ? 'pressed' : ''}`} />
+                </div>
+
+                {/* Center buttons (Start/Select) */}
+                <div className="center-buttons">
+                  <div
+                    className={`center-button select ${activeButtons.p1?.select ? 'pressed' : ''}`}
+                    onPointerDown={() => handleVirtualPress('select')}
+                    onPointerUp={() => handleVirtualRelease('select')}
+                    onTouchStart={() => handleVirtualPress('select')}
+                    onTouchEnd={() => handleVirtualRelease('select')}
+                  >SELECT</div>
+                  <div
+                    className={`center-button start ${activeButtons.p1?.start ? 'pressed' : ''}`}
+                    onPointerDown={() => handleVirtualPress('start')}
+                    onPointerUp={() => handleVirtualRelease('start')}
+                    onTouchStart={() => handleVirtualPress('start')}
+                    onTouchEnd={() => handleVirtualRelease('start')}
+                  >START</div>
+                </div>
+
+                <div className="face-buttons">
+              <div
+                className={`face-button y ${activeButtons.p1 && activeButtons.p1['y'] ? 'pressed' : ''}`}
+                onPointerDown={() => handleVirtualPress('y')}
+                onPointerUp={() => handleVirtualRelease('y')}
+                onTouchStart={() => handleVirtualPress('y')}
+                onTouchEnd={() => handleVirtualRelease('y')}
+              >Y</div>
+              <div
+                className={`face-button x ${activeButtons.p1 && activeButtons.p1['x'] ? 'pressed' : ''}`}
+                onPointerDown={() => handleVirtualPress('x')}
+                onPointerUp={() => handleVirtualRelease('x')}
+                onTouchStart={() => handleVirtualPress('x')}
+                onTouchEnd={() => handleVirtualRelease('x')}
+              >X</div>
+              <div
+                className={`face-button a ${activeButtons.p1 && activeButtons.p1['a'] ? 'pressed' : ''}`}
+                onPointerDown={() => handleVirtualPress('a')}
+                onPointerUp={() => handleVirtualRelease('a')}
+                onTouchStart={() => handleVirtualPress('a')}
+                onTouchEnd={() => handleVirtualRelease('a')}
+              >A</div>
+              <div
+                className={`face-button b ${activeButtons.p1 && activeButtons.p1['b'] ? 'pressed' : ''}`}
+                onPointerDown={() => handleVirtualPress('b')}
+                onPointerUp={() => handleVirtualRelease('b')}
+                onTouchStart={() => handleVirtualPress('b')}
+                onTouchEnd={() => handleVirtualRelease('b')}
+              >B</div>
                 </div>
               </div>
-            ))}
-
-            <div className="text-xs mb-2 mt-3 font-bold">Player 2</div>
-            {Object.keys(mappings.p2).map((key) => (
-              <div className="control-row" key={`p2-${key}`}>
-                <div className="capitalize">{key}</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="mapping-btn"
-                    onClick={() => beginRemap({ player: 'p2', key })}
-                  >
-                    {awaiting && awaiting.player === 'p2' && awaiting.key === key ? 'Press a key...' : formatKeyLabel(mappings.p2[key] ? mappings.p2[key].code : null)}
-                  </button>
-                  <div className="w-3 h-3 rounded-full" style={{ background: activeButtons.p2 && activeButtons.p2[key] ? '#8effd6' : 'rgba(255,255,255,0.03)' }} />
-                  {coreMappings && coreMappings.p2 && coreMappings.p2[key] && (
-                    <div className="text-[11px] text-[#9afbd8]/60">core: {formatKeyLabel(coreMappings.p2[key])}</div>
-                  )}
-                  <button
-                    className="mapping-btn"
-                    onClick={() => clearMapping({ player: 'p2', key })}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            <div className="mt-4 text-xs text-[#9afbd8]/70">Click a mapping to rebind. Press ESC to cancel mapping.</div>
-            <div className="mt-3 flex gap-2">
-              <button className="mapping-btn" onClick={resetMappings}>Reset</button>
-              <button className="mapping-btn" onClick={() => { navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(mappings)); }}>Copy</button>
             </div>
           </div>
         </div>
