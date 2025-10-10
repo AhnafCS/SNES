@@ -92,6 +92,12 @@ export default function EmulatorScreen() {
         // Pass the canvas element directly to satisfy Nostalgist's element check
         element: document.getElementById('nostalgist-canvas'),
         rom: file,
+        // Performance optimizations
+        retroarchConfig: {
+          video_vsync: false, // Disable vsync for better performance on weak devices
+          video_threaded: true, // Enable threaded video for smoother rendering
+          audio_sync: false, // Disable audio sync to reduce lag
+        },
       });
 
       setStatus('running');
@@ -402,8 +408,9 @@ export default function EmulatorScreen() {
   }, []);
 
   // Gamepad handling: poll connected gamepads and forward inputs
+  // Reduced polling frequency for better performance on weak devices
   useEffect(() => {
-    let rafId = null;
+    let intervalId = null;
     const pollGamepad = () => {
       const gps = navigator.getGamepads ? navigator.getGamepads() : [];
       for (const gp of gps) {
@@ -432,11 +439,11 @@ export default function EmulatorScreen() {
           }
         });
       }
-      rafId = requestAnimationFrame(pollGamepad);
     };
 
-    rafId = requestAnimationFrame(pollGamepad);
-    return () => cancelAnimationFrame(rafId);
+    // Poll every 16ms (~60fps) instead of every frame for better performance
+    intervalId = setInterval(pollGamepad, 16);
+    return () => clearInterval(intervalId);
   }, []);
 
   // Pointer/touch handlers for on-screen controls
