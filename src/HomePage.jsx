@@ -29,7 +29,7 @@ export default function HomePage({ onStart }) {
           </h1>
 
           <p className="mt-3 text-xs text-[#9afbd8]/80 max-w-xl">
-            A retro-styled SNES ROMs player.
+            An SNES ROMs player.
           </p>
         </div>
 
