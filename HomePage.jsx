@@ -63,7 +63,7 @@ export default function HomePage() {
 
           {/* Small subtitle for atmosphere */}
           <p className="mt-3 text-xs text-[#9afbd8]/80 max-w-xl">
-            A retro-styled frontend for loading SNES ROMs — UI only, emulator logic coming later.
+            A retro-styled SNES ROMs player.
           </p>
         </div>
 
@@ -101,7 +101,7 @@ export default function HomePage() {
 
         {/* Footer hint - small and unobtrusive */}
         <div className="mt-6 text-[11px] text-[#a9fbe1]/70 select-none">
-          Click to load a ROM file (emulator not attached in this UI build)
+          Click to load a ROM file (emulator built in)
         </div>
       </div>
 

@@ -9,6 +9,9 @@
 body {
   font-family: 'Press Start 2P', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     Roboto, 'Helvetica Neue', Arial;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* CRT and neon utility classes extracted from inline styles */
@@ -42,6 +45,10 @@ body {
   text-shadow: 0 0 14px rgba(102,255,204,0.95), 0 0 6px rgba(0,0,0,0.6);
   letter-spacing: 0.07em;
   font-family: 'Press Start 2P', monospace;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .crt-bezel {
@@ -170,6 +177,9 @@ body {
   font-family: 'Press Start 2P', monospace;
   font-size: 11px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,200,0.06);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Controller at bottom */
