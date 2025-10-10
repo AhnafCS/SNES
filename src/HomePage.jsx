@@ -43,7 +43,7 @@ export default function HomePage({ onStart }) {
             else window.dispatchEvent(new CustomEvent('snes:request-open-file'));
           }}
         >
-          <span className="uppercase text-[13px]">Load ROM</span>
+          <span className="uppercase text-[13px]">START</span>
         </button>
 
         <div className="mt-6 text-[11px] text-[#a9fbe1]/70 select-none">
