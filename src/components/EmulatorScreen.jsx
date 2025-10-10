@@ -33,6 +33,10 @@ export default function EmulatorScreen() {
       down: { code: 'ArrowDown' },
       a: { code: 'KeyK' },
       b: { code: 'KeyJ' },
+      x: { code: 'KeyI' },
+      y: { code: 'KeyU' },
+      l: { code: 'KeyQ' },
+      r: { code: 'KeyE' },
       start: { code: 'Enter' },
       select: { code: 'ShiftLeft' },
     },
@@ -43,6 +47,10 @@ export default function EmulatorScreen() {
       down: { code: 'KeyS' },
       a: { code: 'KeyI' },
       b: { code: 'KeyU' },
+      x: { code: 'KeyY' },
+      y: { code: 'KeyT' },
+      l: { code: 'KeyR' },
+      r: { code: 'KeyF' },
       start: { code: 'KeyO' },
       select: { code: 'KeyP' },
     },
@@ -395,6 +403,17 @@ export default function EmulatorScreen() {
     }
   };
 
+  // Auto-trigger ROM picker on first load if no ROM is loaded
+  useEffect(() => {
+    if (status === 'idle') {
+      // Small delay to let the component render first
+      const timer = setTimeout(() => {
+        triggerRomPicker();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   useEffect(() => {
     // Cleanup: ensure Nostalgist exits/cleans resources on unmount
     return () => {
@@ -564,6 +583,20 @@ export default function EmulatorScreen() {
               <div id="nostalgist-wrapper" className="relative w-full h-full bg-black">
                 <canvas id="nostalgist-canvas" ref={containerRef} className="w-full h-full block bg-black" />
                 <div className="scanline-overlay absolute inset-0 pointer-events-none" />
+                
+                {/* Show message when no ROM is loaded */}
+                {status === 'idle' && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center px-6">
+                      <div className="text-[#8effd6] text-sm mb-3" style={{ fontFamily: "'Press Start 2P', monospace", textShadow: '0 0 10px rgba(102,255,204,0.6)' }}>
+                        No ROM Loaded
+                      </div>
+                      <div className="text-[#9afbd8]/70 text-xs" style={{ fontFamily: "'Press Start 2P', monospace" }}>
+                        Click "Load ROM" above
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -571,7 +604,7 @@ export default function EmulatorScreen() {
           {/* buttons above the CRT (positioned via CSS) */}
           <div className="tv-buttons">
             <button className="tv-button" onClick={triggerRomPicker}>Load ROM</button>
-            <button className="tv-button" onClick={toggleFullscreen}>Fullscreen</button>
+            <button className="tv-button" onClick={toggleFullscreen}>Full Screen</button>
             <button className="tv-button" onClick={saveState}>Save State</button>
             <button className="tv-button" onClick={() => loadStateInputRef.current && loadStateInputRef.current.click()}>Load State</button>
           </div>
@@ -676,7 +709,10 @@ export default function EmulatorScreen() {
       <input ref={romInputRef} type="file" accept=".smc,.sfc,application/octet-stream" className="hidden" onChange={onRomSelected} />
       <input ref={loadStateInputRef} type="file" accept=".state,application/octet-stream" className="hidden" onChange={onLoadStateFile} />
 
-      <div className="mt-3 text-xs text-[#9afbd8]/80">Status: {status}</div>
+      <div className="mt-3 text-xs text-[#9afbd8]/80">
+        Status: {status}
+        {status === 'idle' && <span className="ml-2">(Select a ROM file to begin)</span>}
+      </div>
       {status === 'error' && (
         <div className="mt-2 p-3 bg-red-900/60 rounded text-[12px] max-w-xl">
           <div className="font-bold">Emulator failed to start</div>

@@ -257,7 +257,6 @@ export default function EmulatorScreen({ className = "", style = {} }) {
       >
         {/* Curved screen container: we use a subtle transform and an inner shadow */}
         <div className="crt-screen rounded-lg overflow-hidden relative">
-        >
           <canvas ref={canvasRef} className="canvas-style block mx-auto" />
 
           {/* Hidden file input for ROM upload; accepts common SNES ROM extensions */}
