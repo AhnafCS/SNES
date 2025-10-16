@@ -124,8 +124,7 @@ const detectConsoleFromFile = (filename) => {
     // Amstrad CPC
     'cdt': { core: 'cap32', extensions: '.cdt,.dsk' },
     
-    // 3DO
-    'iso': { core: 'opera', extensions: '.iso,.cue,.chd' },
+    // 3DO - Note: .iso and .cue handled by PlayStation, use .chd for 3DO specifically
     
     // Vectrex
     'vec': { core: 'vecx', extensions: '.vec,.gam,.bin' },
@@ -1051,13 +1050,12 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Power LED indicator */}
-          {status === 'running' && <div className="power-led" title="Power On"></div>}
+            {/* Power LED indicator */}
+            {status === 'running' && <div className="power-led" title="Power On"></div>}
 
-          {/* Control buttons below TV screen */}
-          <div className="tv-buttons">
+            {/* Control buttons below TV screen */}
+            <div className="tv-buttons">
             <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); triggerRomPicker(); }} title="Load ROM">
               <span style={{ fontSize: '14px' }}>📁</span>
               <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
@@ -1074,14 +1072,14 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
               <span style={{ fontSize: '14px' }}>📂</span>
               <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
             </button>
-          </div>
+            </div>
 
-          {/* Controller panel below the TV */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 0 }}>
-            <div className="controller-area" aria-hidden>
+            {/* Controller panel below the TV */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 0 }}>
+              <div className="controller-area" aria-hidden>
 
-              {/* Main controls row */}
-              <div className="main-controls-row">
+                {/* Main controls row */}
+                <div className="main-controls-row">
                 <div 
                   className="dpad"
                   onPointerDown={handleDpadStart}
@@ -1157,7 +1155,7 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
               </div>
             </div>
           </div>
-        </div>
+          </div>
 
         {/* Hidden inputs */}
         <input ref={romInputRef} type="file" accept=".smc,.sfc,.fig,.swc,.nes,.unf,.unif,.gba,.agb,.gbc,.gb,.n64,.z64,.v64,.nds,.md,.gen,.smd,.sms,.gg,.cue,.chd,.iso,.32x,.ccd,.pbp,.a26,.a78,.lnx,.o,.j64,.jag,.pce,.sgx,.ngp,.ngc,.ws,.wsc,.vb,.vboy,.rom,.mx1,.mx2,.dsk,.d64,.t64,.prg,.cdt,.vec,.gam,.bin,.zip,application/octet-stream,application/zip" className="hidden" onChange={onRomSelected} />
@@ -1193,6 +1191,7 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
