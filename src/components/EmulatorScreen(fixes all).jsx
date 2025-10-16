@@ -14,7 +14,6 @@ import JSZip from 'jszip';
     instantiate the selected core in the provided DOM element.
   - saveState/loadState are called on the Nostalgist instance if available.
   - The component cleans up by calling `exit()` on unmount.
-  - NEW: Dual gamepad mode support - Universal (all gamepads→P1) or Multiplayer (GP1→P1, GP2→P2)
 */
 
 // Auto-detect console from ROM file extension
@@ -63,19 +62,20 @@ const detectConsoleFromFile = (filename) => {
     // Sega - Game Gear
     'gg': { core: 'genesis_plus_gx', extensions: '.gg' },
     
-    // Sega - CD (requires BIOS) - Note: .cue and .iso handled by PlayStation below
-    'chd': { core: 'genesis_plus_gx', extensions: '.chd' },
+    // Sega - CD (requires BIOS)
+    'cue': { core: 'genesis_plus_gx', extensions: '.cue,.chd,.iso' },
+    'chd': { core: 'genesis_plus_gx', extensions: '.cue,.chd,.iso' },
+    'iso': { core: 'genesis_plus_gx', extensions: '.cue,.chd,.iso' },
     
     // Sega - 32X
     '32x': { core: 'picodrive', extensions: '.32x,.bin' },
     
     // Sega - Saturn (requires BIOS)
-    'ccd': { core: 'yabause', extensions: '.ccd' },
+    'ccd': { core: 'yabause', extensions: '.cue,.ccd,.chd,.iso' },
     
-    // Sony - PlayStation (more common, takes priority for .cue and .iso)
-    'cue': { core: 'pcsx_rearmed', extensions: '.cue,.chd,.pbp,.bin,.iso' },
-    'pbp': { core: 'pcsx_rearmed', extensions: '.cue,.chd,.pbp,.bin,.iso' },
-    'iso': { core: 'pcsx_rearmed', extensions: '.cue,.chd,.pbp,.bin,.iso' },
+    // Sony - PlayStation
+    'cue': { core: 'pcsx_rearmed', extensions: '.cue,.chd,.pbp,.bin' },
+    'pbp': { core: 'pcsx_rearmed', extensions: '.cue,.chd,.pbp,.bin' },
     
     // Atari - 2600
     'a26': { core: 'stella', extensions: '.a26,.bin' },
@@ -124,7 +124,8 @@ const detectConsoleFromFile = (filename) => {
     // Amstrad CPC
     'cdt': { core: 'cap32', extensions: '.cdt,.dsk' },
     
-    // 3DO - Note: .iso and .cue handled by PlayStation, use .chd for 3DO specifically
+    // 3DO
+    'iso': { core: 'opera', extensions: '.iso,.cue,.chd' },
     
     // Vectrex
     'vec': { core: 'vecx', extensions: '.vec,.gam,.bin' },
@@ -154,9 +155,6 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
   const [errorDetails, setErrorDetails] = useState(null);
   const [core, setCore] = useState(initialCore);
   const [extensions, setExtensions] = useState(initialExtensions);
-  
-  // NEW: Control mode state - determines which device controls which player
-  const [controlMode, setControlMode] = useState('1P'); // '1P' (gamepad=P1, keyboard=P2) or '2P' (keyboard=P1, gamepad=P2)
   
   // Sound effects
   const playSound = (soundFile) => {
@@ -283,7 +281,7 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
         // fallback: still attempt an immediate update
         updateCoreMappings();
       });
-      console.log('Nostalgist launched with core:', coreToUse);
+      console.log('Nostalgist launched with snes9x core');
     } catch (err) {
       console.error('Failed to launch Nostalgist:', err);
       // Capture error details for UI debugging
@@ -491,38 +489,16 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
         return;
       }
 
-      // NEW: Check if any gamepad is connected
-      const hasGamepad = connectedGamepads.length > 0;
-
       // Otherwise, check both player mappings and dispatch mapped control events
       for (const player of ['p1', 'p2']) {
         const map = mappings[player] || {};
         for (const control of Object.keys(map)) {
           if (map[control] && map[control].code === e.code) {
-            // NEW: Assign player based on control mode and gamepad presence
-            let assignedPlayer, assignedPlayerNum;
-            
-            if (controlMode === '1P') {
-              // 1P Mode: Gamepad=P1, Keyboard=P2 (when gamepad connected)
-              assignedPlayer = hasGamepad ? 'p2' : 'p1';
-              assignedPlayerNum = hasGamepad ? 2 : 1;
-            } else {
-              // 2P Mode: Keyboard=P1, Gamepad=P2 (always P1 for keyboard)
-              assignedPlayer = 'p1';
-              assignedPlayerNum = 1;
-            }
-            
-            window.dispatchEvent(new CustomEvent('snes:input', { 
-              detail: { 
-                control: toCoreId(control, assignedPlayerNum), 
-                type: 'down', 
-                player: assignedPlayer 
-              } 
-            }));
+            window.dispatchEvent(new CustomEvent('snes:input', { detail: { control, type: 'down', player } }));
             // Mark visual active
             setActiveButtons((prev) => ({
               ...prev,
-              [assignedPlayer]: { ...(prev[assignedPlayer] || {}), [control]: true },
+              [player]: { ...(prev[player] || {}), [control]: true },
             }));
             e.preventDefault();
           }
@@ -531,37 +507,15 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
     };
 
     const onKeyUp = (e) => {
-      // NEW: Check if any gamepad is connected
-      const hasGamepad = connectedGamepads.length > 0;
-      
       for (const player of ['p1', 'p2']) {
         const map = mappings[player] || {};
         for (const control of Object.keys(map)) {
           if (map[control] && map[control].code === e.code) {
-            // NEW: Assign player based on control mode and gamepad presence
-            let assignedPlayer, assignedPlayerNum;
-            
-            if (controlMode === '1P') {
-              // 1P Mode: Gamepad=P1, Keyboard=P2 (when gamepad connected)
-              assignedPlayer = hasGamepad ? 'p2' : 'p1';
-              assignedPlayerNum = hasGamepad ? 2 : 1;
-            } else {
-              // 2P Mode: Keyboard=P1, Gamepad=P2 (always P1 for keyboard)
-              assignedPlayer = 'p1';
-              assignedPlayerNum = 1;
-            }
-            
-            window.dispatchEvent(new CustomEvent('snes:input', { 
-              detail: { 
-                control: toCoreId(control, assignedPlayerNum), 
-                type: 'up', 
-                player: assignedPlayer 
-              } 
-            }));
+            window.dispatchEvent(new CustomEvent('snes:input', { detail: { control, type: 'up', player } }));
             // Clear visual active
             setActiveButtons((prev) => ({
               ...prev,
-              [assignedPlayer]: { ...(prev[assignedPlayer] || {}), [control]: false },
+              [player]: { ...(prev[player] || {}), [control]: false },
             }));
             e.preventDefault();
           }
@@ -575,7 +529,7 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [mappings, awaiting, connectedGamepads, controlMode]);
+  }, [mappings, awaiting]);
 
   // Wire mapped events to Nostalgist input API using documented instance methods
   // Nostalgist instance provides `pressDown` and `pressUp` (or `press`) for input.
@@ -589,39 +543,27 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
         return;
       }
       
-      // Determine player index: 1 = Player 1, 2 = Player 2
-      const playerIndex = player === 'p2' ? 2 : 1;
-      console.log(`Sending to emulator: ${control} (${type}) for player ${player} (index: ${playerIndex})`);
+      // Nostalgist uses lowercase button names without P2_ prefix
+      // Player is specified separately in the options
+      const playerIndex = player === 'p2' ? 1 : 0;
+      console.log(`Sending to emulator: ${control} (${type}) for player ${playerIndex}`);
       
       try {
-        // Try different methods to send player-specific input
-        
-        // Method 1: Try press with full payload including player
-        if (typeof nostalgistRef.current.press === 'function') {
-          console.log('Using press method with player payload');
-          nostalgistRef.current.press({ 
-            control, 
-            type, 
-            player: playerIndex 
-          });
-        }
-        // Method 2: Try pressDown/pressUp with player index
-        else if (type === 'down' && typeof nostalgistRef.current.pressDown === 'function') {
+        // Prefer `pressDown` / `pressUp` if available (documented instance methods)
+        if (type === 'down' && typeof nostalgistRef.current.pressDown === 'function') {
           console.log('Using pressDown method');
           nostalgistRef.current.pressDown(control, playerIndex);
         } else if (type === 'up' && typeof nostalgistRef.current.pressUp === 'function') {
           console.log('Using pressUp method');
           nostalgistRef.current.pressUp(control, playerIndex);
-        }
-        // Method 3: Try sendCommand
-        else if (typeof nostalgistRef.current.sendCommand === 'function') {
+        } else if (typeof nostalgistRef.current.press === 'function') {
+          // fallback: call press with payload
+          console.log('Using press method');
+          nostalgistRef.current.press({ control, type, player });
+        } else if (typeof nostalgistRef.current.sendCommand === 'function') {
+          // advanced API: sendCommand
           console.log('Using sendCommand method');
-          nostalgistRef.current.sendCommand({ 
-            type: 'input', 
-            control, 
-            action: type, 
-            player: playerIndex 
-          });
+          nostalgistRef.current.sendCommand({ type: 'input', control, action: type, player });
         } else {
           console.log('No input method available on nostalgist instance');
         }
@@ -825,6 +767,13 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
       for (const gp of gps) {
         if (!gp) continue;
         
+        // Determine player (gamepad 0 = p1, gamepad 1+ = p2)
+        // Force all gamepads to be player 1 for simplicity
+        // Assign gamepads to correct players
+        const player = gp.index === 0 ? 'p1' : 'p2';
+        const playerNum = gp.index === 0 ? 1 : 2;
+
+        
         // Initialize state for this gamepad if needed
         if (!gamepadState.current.buttons[gp.index]) {
           gamepadState.current.buttons[gp.index] = {};
@@ -832,12 +781,6 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
         if (!gamepadState.current.axes[gp.index]) {
           gamepadState.current.axes[gp.index] = { up: false, down: false, left: false, right: false };
         }
-        
-        // Determine player based on gamepad index (gamepad 0 = p1, gamepad 1 = p2)
-        const player = gp.index === 0 ? 'p1' : 'p2';
-        const playerNum = gp.index === 0 ? 1 : 2;
-        
-        console.log(`Gamepad ${gp.index} assigned to ${player} (playerNum: ${playerNum})`);
         
         // Process buttons
         gp.buttons.forEach((btn, idx) => {
@@ -850,9 +793,7 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
           // Only dispatch events on state change
           if (isPressed && !wasPressed) {
             // Button pressed
-            console.log(`Gamepad ${gp.index} button pressed: ${snesButton} -> ${player} (playerNum: ${playerNum})`);
-            
-            // Send raw button name, not toCoreId transformed
+            console.log(`Gamepad button pressed: ${snesButton} (${player})`);
             window.dispatchEvent(new CustomEvent('snes:input', { 
               detail: { control: snesButton, type: 'down', player } 
             }));
@@ -990,7 +931,7 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
       window.removeEventListener('gamepadconnected', onGamepadConnected);
       window.removeEventListener('gamepaddisconnected', onGamepadDisconnected);
     };
-  }, [status, controlMode]); // Re-run when status or controlMode changes
+  }, [status]); // Re-run when status changes to ensure gamepad works when emulator starts
 
   // Pointer/touch handlers for on-screen controls
   const handleVirtualPress = (buttonName, player = 'p1') => {
@@ -1110,157 +1051,151 @@ export default function EmulatorScreen({ core: initialCore = 'snes9x', extension
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Power LED indicator */}
-            {status === 'running' && <div className="power-led" title="Power On"></div>}
+          {/* Power LED indicator */}
+          {status === 'running' && <div className="power-led" title="Power On"></div>}
 
-            {/* Control buttons below TV screen */}
-            <div className="tv-buttons">
-              <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); triggerRomPicker(); }} title="Load ROM">
-                <span style={{ fontSize: '14px' }}>📁</span>
-                <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
-              </button>
-              <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); toggleFullscreen(); }} title="Fullscreen">
-                <span style={{ fontSize: '14px' }}>⛶</span>
-                <div style={{ fontSize: '6px', marginTop: '2px' }}>FULL</div>
-              </button>
-              <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); saveState(); }} title="Save State">
-                <span style={{ fontSize: '14px' }}>💾</span>
-                <div style={{ fontSize: '6px', marginTop: '2px' }}>SAVE</div>
-              </button>
-              <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); loadStateInputRef.current && loadStateInputRef.current.click(); }} title="Load State">
-                <span style={{ fontSize: '14px' }}>📂</span>
-                <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
-              </button>
-            </div>
+          {/* Control buttons below TV screen */}
+          <div className="tv-buttons">
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); triggerRomPicker(); }} title="Load ROM">
+              <span style={{ fontSize: '14px' }}>📁</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
+            </button>
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); toggleFullscreen(); }} title="Fullscreen">
+              <span style={{ fontSize: '14px' }}>⛶</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>FULL</div>
+            </button>
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); saveState(); }} title="Save State">
+              <span style={{ fontSize: '14px' }}>💾</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>SAVE</div>
+            </button>
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); loadStateInputRef.current && loadStateInputRef.current.click(); }} title="Load State">
+              <span style={{ fontSize: '14px' }}>📂</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
+            </button>
+          </div>
 
-            {/* Controller panel below the TV */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 0 }}>
-              <div className="controller-area" aria-hidden>
+          {/* Controller panel below the TV */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 0 }}>
+            <div className="controller-area" aria-hidden>
 
-                {/* Main controls row */}
-                <div className="main-controls-row">
-                  <div 
-                    className="dpad"
-                    onPointerDown={handleDpadStart}
-                    onPointerMove={handleDpadMove}
-                    onPointerUp={handleDpadEnd}
-                    onPointerLeave={handleDpadEnd}
-                    onPointerCancel={handleDpadEnd}
-                    onTouchStart={handleDpadStart}
-                    onTouchMove={handleDpadMove}
-                    onTouchEnd={handleDpadEnd}
-                    onTouchCancel={handleDpadEnd}
-                  >
-                    {/* Visual indicators for active directions */}
-                    <div className={`dpad-zone up ${(activeButtons.p1?.up || activeButtons.p2?.up) ? 'pressed' : ''}`} />
-                    <div className={`dpad-zone down ${(activeButtons.p1?.down || activeButtons.p2?.down) ? 'pressed' : ''}`} />
-                    <div className={`dpad-zone left ${(activeButtons.p1?.left || activeButtons.p2?.left) ? 'pressed' : ''}`} />
-                    <div className={`dpad-zone right ${(activeButtons.p1?.right || activeButtons.p2?.right) ? 'pressed' : ''}`} />
-                  </div>
+              {/* Main controls row */}
+              <div className="main-controls-row">
+                <div 
+                  className="dpad"
+                  onPointerDown={handleDpadStart}
+                  onPointerMove={handleDpadMove}
+                  onPointerUp={handleDpadEnd}
+                  onPointerLeave={handleDpadEnd}
+                  onPointerCancel={handleDpadEnd}
+                  onTouchStart={handleDpadStart}
+                  onTouchMove={handleDpadMove}
+                  onTouchEnd={handleDpadEnd}
+                  onTouchCancel={handleDpadEnd}
+                >
+                  {/* Visual indicators for active directions */}
+                  <div className={`dpad-zone up ${(activeButtons.p1?.up || activeButtons.p2?.up) ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone down ${(activeButtons.p1?.down || activeButtons.p2?.down) ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone left ${(activeButtons.p1?.left || activeButtons.p2?.left) ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone right ${(activeButtons.p1?.right || activeButtons.p2?.right) ? 'pressed' : ''}`} />
+                </div>
 
-                  {/* Center buttons (Start/Select) with label */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <div className="center-buttons">
-                      <div
-                        className={`center-button select ${(activeButtons.p1?.select || activeButtons.p2?.select) ? 'pressed' : ''}`}
-                        onPointerDown={() => { playSound('/UI SELECT.wav'); handleVirtualPress('select'); }}
-                        onPointerUp={() => handleVirtualRelease('select')}
-                        onTouchStart={() => { playSound('/UI SELECT.wav'); handleVirtualPress('select'); }}
-                        onTouchEnd={() => handleVirtualRelease('select')}
-                      ></div>
-                      <div
-                        className={`center-button start ${(activeButtons.p1?.start || activeButtons.p2?.start) ? 'pressed' : ''}`}
-                        onPointerDown={() => { playSound('/UI START.wav'); handleVirtualPress('start'); }}
-                        onPointerUp={() => handleVirtualRelease('start')}
-                        onTouchStart={() => { playSound('/UI START.wav'); handleVirtualPress('start'); }}
-                        onTouchEnd={() => handleVirtualRelease('start')}
-                      ></div>
-                    </div>
-                    <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: '#888', letterSpacing: '2px' }}>
-                      START SELCT
-                    </div>
-                  </div>
-
-                  <div className="face-buttons">
+                {/* Center buttons (Start/Select) with label */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <div className="center-buttons">
                     <div
-                      className={`face-button y ${(activeButtons.p1?.y || activeButtons.p2?.y) ? 'pressed' : ''}`}
-                      onPointerDown={() => handleVirtualPress('y')}
-                      onPointerUp={() => handleVirtualRelease('y')}
-                      onTouchStart={() => handleVirtualPress('y')}
-                      onTouchEnd={() => handleVirtualRelease('y')}
+                      className={`center-button select ${(activeButtons.p1?.select || activeButtons.p2?.select) ? 'pressed' : ''}`}
+                      onPointerDown={() => { playSound('/UI SELECT.wav'); handleVirtualPress('select'); }}
+                      onPointerUp={() => handleVirtualRelease('select')}
+                      onTouchStart={() => { playSound('/UI SELECT.wav'); handleVirtualPress('select'); }}
+                      onTouchEnd={() => handleVirtualRelease('select')}
                     ></div>
                     <div
-                      className={`face-button x ${(activeButtons.p1?.x || activeButtons.p2?.x) ? 'pressed' : ''}`}
-                      onPointerDown={() => handleVirtualPress('x')}
-                      onPointerUp={() => handleVirtualRelease('x')}
-                      onTouchStart={() => handleVirtualPress('x')}
-                      onTouchEnd={() => handleVirtualRelease('x')}
-                    ></div>
-                    <div
-                      className={`face-button a ${(activeButtons.p1?.a || activeButtons.p2?.a) ? 'pressed' : ''}`}
-                      onPointerDown={() => handleVirtualPress('a')}
-                      onPointerUp={() => handleVirtualRelease('a')}
-                      onTouchStart={() => handleVirtualPress('a')}
-                      onTouchEnd={() => handleVirtualRelease('a')}
-                    ></div>
-                    <div
-                      className={`face-button b ${(activeButtons.p1?.b || activeButtons.p2?.b) ? 'pressed' : ''}`}
-                      onPointerDown={() => handleVirtualPress('b')}
-                      onPointerUp={() => handleVirtualRelease('b')}
-                      onTouchStart={() => handleVirtualPress('b')}
-                      onTouchEnd={() => handleVirtualRelease('b')}
+                      className={`center-button start ${(activeButtons.p1?.start || activeButtons.p2?.start) ? 'pressed' : ''}`}
+                      onPointerDown={() => { playSound('/UI START.wav'); handleVirtualPress('start'); }}
+                      onPointerUp={() => handleVirtualRelease('start')}
+                      onTouchStart={() => { playSound('/UI START.wav'); handleVirtualPress('start'); }}
+                      onTouchEnd={() => handleVirtualRelease('start')}
                     ></div>
                   </div>
+                  <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: '#888', letterSpacing: '2px' }}>
+                    START SELCT
+                  </div>
+                </div>
+
+                <div className="face-buttons">
+                  <div
+                    className={`face-button y ${(activeButtons.p1?.y || activeButtons.p2?.y) ? 'pressed' : ''}`}
+                    onPointerDown={() => handleVirtualPress('y')}
+                    onPointerUp={() => handleVirtualRelease('y')}
+                    onTouchStart={() => handleVirtualPress('y')}
+                    onTouchEnd={() => handleVirtualRelease('y')}
+                  ></div>
+                  <div
+                    className={`face-button x ${(activeButtons.p1?.x || activeButtons.p2?.x) ? 'pressed' : ''}`}
+                    onPointerDown={() => handleVirtualPress('x')}
+                    onPointerUp={() => handleVirtualRelease('x')}
+                    onTouchStart={() => handleVirtualPress('x')}
+                    onTouchEnd={() => handleVirtualRelease('x')}
+                  ></div>
+                  <div
+                    className={`face-button a ${(activeButtons.p1?.a || activeButtons.p2?.a) ? 'pressed' : ''}`}
+                    onPointerDown={() => handleVirtualPress('a')}
+                    onPointerUp={() => handleVirtualRelease('a')}
+                    onTouchStart={() => handleVirtualPress('a')}
+                    onTouchEnd={() => handleVirtualRelease('a')}
+                  ></div>
+                  <div
+                    className={`face-button b ${(activeButtons.p1?.b || activeButtons.p2?.b) ? 'pressed' : ''}`}
+                    onPointerDown={() => handleVirtualPress('b')}
+                    onPointerUp={() => handleVirtualRelease('b')}
+                    onTouchStart={() => handleVirtualPress('b')}
+                    onTouchEnd={() => handleVirtualRelease('b')}
+                  ></div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Hidden inputs */}
-          <input ref={romInputRef} type="file" accept=".smc,.sfc,.fig,.swc,.nes,.unf,.unif,.gba,.agb,.gbc,.gb,.n64,.z64,.v64,.nds,.md,.gen,.smd,.sms,.gg,.cue,.chd,.iso,.32x,.ccd,.pbp,.a26,.a78,.lnx,.o,.j64,.jag,.pce,.sgx,.ngp,.ngc,.ws,.wsc,.vb,.vboy,.rom,.mx1,.mx2,.dsk,.d64,.t64,.prg,.cdt,.vec,.gam,.bin,.zip,application/octet-stream,application/zip" className="hidden" onChange={onRomSelected} />
-          <input ref={loadStateInputRef} type="file" accept=".state,application/octet-stream" className="hidden" onChange={onLoadStateFile} />
+        {/* Hidden inputs */}
+        <input ref={romInputRef} type="file" accept=".smc,.sfc,.fig,.swc,.nes,.unf,.unif,.gba,.agb,.gbc,.gb,.n64,.z64,.v64,.nds,.md,.gen,.smd,.sms,.gg,.cue,.chd,.iso,.32x,.ccd,.pbp,.a26,.a78,.lnx,.o,.j64,.jag,.pce,.sgx,.ngp,.ngc,.ws,.wsc,.vb,.vboy,.rom,.mx1,.mx2,.dsk,.d64,.t64,.prg,.cdt,.vec,.gam,.bin,.zip,application/octet-stream,application/zip" className="hidden" onChange={onRomSelected} />
+        <input ref={loadStateInputRef} type="file" accept=".state,application/octet-stream" className="hidden" onChange={onLoadStateFile} />
 
-          {/* Mobile-friendly load ROM button (only shows when no ROM is loaded) */}
-          {status === 'idle' && (
-            <button className="mobile-load-rom" onClick={triggerRomPicker}>
-              📁 LOAD ROM
-            </button>
-          )}
+        {/* Mobile-friendly load ROM button (only shows when no ROM is loaded) */}
+        {status === 'idle' && (
+          <button className="mobile-load-rom" onClick={triggerRomPicker}>
+            📁 LOAD ROM
+          </button>
+        )}
 
-          <div className="status-text mt-3 text-xs text-[#9afbd8]/80">
-            <div>
-              Status: {status}
-              {status === 'idle' && <span className="ml-2">(Load any ROM to auto-detect console)</span>}
-            </div>
-            {connectedGamepads.length > 0 && (
-              <div className="mt-1">
-                🎮 {connectedGamepads.length} controller{connectedGamepads.length > 1 ? 's' : ''} connected
-                <span className="ml-2" style={{ fontSize: '10px', opacity: 0.8 }}>
-                  ({controlMode === '1P' ? 'Gamepad→P1, Keyboard→P2' : 'Keyboard→P1, Gamepad→P2'})
-                </span>
-              </div>
-            )}
-            {connectedGamepads.length === 0 && (
-              <div className="mt-1" style={{ fontSize: '10px', opacity: 0.7 }}>
-                No gamepad detected - Keyboard controls Player 1
-              </div>
-            )}
+        <div className="status-text mt-3 text-xs text-[#9afbd8]/80">
+          <div>
+            Status: {status}
+            {status === 'idle' && <span className="ml-2">(Load any ROM to auto-detect console)</span>}
           </div>
-          {status === 'error' && (
-            <div className="mt-2 p-3 bg-red-900/60 rounded text-[12px] max-w-xl">
-              <div className="font-bold">Emulator failed to start</div>
-              {errorMessage && <div className="mt-1">{errorMessage}</div>}
-              {errorDetails && (
-                <details className="mt-2 text-xs max-h-40 overflow-auto">
-                  <summary>Stack / details</summary>
-                  <pre className="whitespace-pre-wrap">{errorDetails}</pre>
-                </details>
-              )}
+          {connectedGamepads.length > 0 && (
+            <div className="mt-1">
+              🎮 {connectedGamepads.length} controller{connectedGamepads.length > 1 ? 's' : ''} connected
             </div>
           )}
         </div>
+        {status === 'error' && (
+          <div className="mt-2 p-3 bg-red-900/60 rounded text-[12px] max-w-xl">
+            <div className="font-bold">Emulator failed to start</div>
+            {errorMessage && <div className="mt-1">{errorMessage}</div>}
+            {errorDetails && (
+              <details className="mt-2 text-xs max-h-40 overflow-auto">
+                <summary>Stack / details</summary>
+                <pre className="whitespace-pre-wrap">{errorDetails}</pre>
+              </details>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+
