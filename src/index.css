@@ -125,33 +125,60 @@ body {
               linear-gradient(180deg, #071018 0%, #05030a 100%);
   min-height: 100vh;
   padding: 40px 24px;
+  overflow-x: hidden;
+  position: relative;
 }
 
-/* TV frame */
+/* Background gif overlay */
+.room-backdrop::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: url('/bg.gif');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  opacity: 0.08;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Ensure content is above background */
+.room-backdrop > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* TV frame - Retro CRT style with wood grain effect */
 .tv-frame {
   width: 900px;
   max-width: calc(100vw - 48px);
   margin: 0 auto;
   position: relative;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #111 0%, #080808 100%);
-  box-shadow: 0 60px 120px rgba(0,0,0,0.75), 0 20px 40px rgba(0,0,0,0.6), inset 0 2px 10px rgba(255,255,255,0.02);
-  padding: 22px 22px 120px 22px; /* extra bottom space for controller */
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3d2817 0%, #2a1810 50%, #1f120c 100%);
+  box-shadow: 0 60px 120px rgba(0,0,0,0.9), 0 20px 40px rgba(0,0,0,0.8), inset 0 2px 4px rgba(255,255,255,0.05), inset 0 -2px 4px rgba(0,0,0,0.5);
+  padding: 40px 40px 30px 40px;
+  border: 8px solid #1a0f0a;
+  flex-shrink: 0;
 }
 
 .tv-area { position: relative; }
 
 .tv-screen-window {
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   background: #000;
   width: 100%;
-  aspect-ratio: 1 / 1; /* Square screen */
-  max-height: 450px; /* Reduced from 600px */
+  aspect-ratio: 4 / 3;
+  max-height: 500px;
   display: block;
   position: relative;
-  box-shadow: 0 8px 30px rgba(0,200,170,0.06), inset 0 0 80px rgba(0,255,200,0.02);
-  /* Performance optimizations */
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.9), inset 0 0 100px rgba(100,150,255,0.15);
+  border: 12px solid #1a1a1a;
   will-change: transform;
   transform: translateZ(0);
 }
@@ -163,10 +190,6 @@ body {
   20% { opacity: 0.98; }
   30% { opacity: 0.96; }
   40% { opacity: 0.99; }
-  100% { opacity: 0.98; }
-}
-.crt-flicker {
-  animation: crtFlicker 3s infinite;
 }
 
 /* Decorative tape deck and posters */
@@ -187,80 +210,327 @@ body {
 .posters { display:flex; gap:8px; margin-bottom:12px; }
 .poster { width:80px; height:48px; background: linear-gradient(180deg,#3b0,#06a); border-radius:6px; box-shadow: inset 0 -6px 12px rgba(0,0,0,0.3); }
 
-/* Responsive tweaks */
+/* Mobile optimizations */
 @media (max-width: 900px) {
-  .room-decor { flex-direction: column; align-items: center; }
-  .controls-area { width: 100%; max-width: none; }
-  .tv-frame { width: 100%; padding-bottom: 120px; }
-  .tv-screen-window { max-height: 350px; } /* Reduced from 400px */
-  .controls-panel { display: none; } /* Hide keyboard controls on mobile */
-  .crt-flicker { animation: none !important; } /* Disable CRT animation on mobile for performance */
-  .scanline-overlay { display: none; } /* Disable scanlines on mobile */
+  .room-backdrop {
+    padding: 10px 8px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  
+  .room-decor { 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .controls-area { 
+    width: 100%; 
+    max-width: none; 
+  }
+  
+  .tv-frame { 
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    padding: 15px 10px 15px 10px;
+    border: 3px solid #1a0f0a;
+    margin: 0 auto;
+  }
+  
+  .tv-screen-window { 
+    max-height: min(35vh, 280px);
+    border: 4px solid #1a1a1a;
+    width: 100%;
+  }
+  
+  .controls-panel { 
+    display: none; 
+  }
+  
+  .crt-flicker { 
+    animation: none !important; 
+  }
+  
+  .scanline-overlay { 
+    display: none; 
+  }
+  
+  /* Mobile TV buttons - move below screen */
+  .tv-buttons {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    flex-direction: row !important;
+    gap: 5px !important;
+    margin-top: 8px !important;
+    justify-content: center !important;
+  }
+  
+  .tv-button {
+    width: 64px !important;
+    height: 44px !important;
+    font-size: 6px !important;
+    border-radius: 6px !important;
+    background: linear-gradient(180deg, #333, #111) !important;
+    flex-direction: column !important;
+    padding: 3px !important;
+  }
+  
+  /* Power LED */
+  .power-led {
+    bottom: 15px;
+    right: 20px;
+    width: 6px;
+    height: 6px;
+  }
+  
+  /* Controller area - optimize for mobile */
+  .controller-area {
+    margin: 8px auto 0 !important;
+    padding: 15px 4px !important;
+    width: calc(100vw - 8px) !important;
+    max-width: calc(100vw - 8px) !important;
+    border: 2px solid #0f0f0f !important;
+  }
+  
+  /* Main controls - better spacing on mobile */
+  .main-controls-row {
+    gap: 6px !important;
+    padding: 8px 0 !important;
+    width: 100% !important;
+    justify-content: space-evenly !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+  }
+  
+  /* D-pad - optimized for mobile */
+  .dpad {
+    width: 85px !important;
+    height: 85px !important;
+    flex-shrink: 0;
+  }
+  
+  .dpad::before {
+    width: 32% !important;
+    height: 80% !important;
+    top: 10% !important;
+  }
+  
+  .dpad::after {
+    width: 80% !important;
+    height: 32% !important;
+    left: 10% !important;
+  }
+  
+  /* Face buttons - optimized for mobile */
+  .face-buttons {
+    width: 120px !important;
+    height: 120px !important;
+    flex-shrink: 0;
+  }
+  
+  .face-button {
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 11px !important;
+    border: 2px solid rgba(0,0,0,0.3) !important;
+  }
+  
+  /* Center buttons - optimized for mobile */
+  .center-buttons {
+    gap: 6px !important;
+    flex-shrink: 0;
+    flex-direction: column !important;
+  }
+  
+  .center-button {
+    width: 55px !important;
+    height: 24px !important;
+    font-size: 6px !important;
+  }
+  
+  /* Mobile load ROM button - make it prominent */
+  .mobile-load-rom {
+    display: block !important;
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    background: linear-gradient(135deg, rgba(0,255,200,0.15), rgba(0,200,255,0.12));
+    border: 2px solid rgba(0,255,200,0.4);
+    color: #bfffe8;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    text-shadow: 0 0 8px rgba(102,255,204,0.8);
+    box-shadow: 0 4px 20px rgba(0,255,200,0.3);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .mobile-load-rom:active {
+    transform: translateX(-50%) scale(0.95);
+  }
+  
+  /* Hide status text on mobile to save space */
+  .status-text {
+    font-size: 10px;
+    margin-top: 8px;
+    text-align: center;
+    padding: 0 8px;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Adjust TV area for mobile */
+  .tv-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
 }
 
-/* Decorative TV buttons area */
+/* Hide mobile load ROM button on desktop */
+.mobile-load-rom {
+  display: none;
+}
+
+/* TV control knobs on the right side (desktop only) */
 .tv-buttons {
   position: absolute;
-  top: -60px; /* move buttons further above the screen */
-  left: 50%;
-  transform: translateX(-50%);
+  top: 80px;
+  right: 20px;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 20px;
   align-items: center;
   z-index: 50;
 }
 
 .tv-button {
-  background: linear-gradient(180deg, #222, #000);
-  border: 2px solid rgba(255,255,255,0.04);
-  width: 84px;
-  height: 36px;
-  border-radius: 8px;
+  background: radial-gradient(circle at 30% 30%, #444, #1a1a1a);
+  border: 3px solid #0a0a0a;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #bfffe8;
+  color: #999;
   cursor: pointer;
   font-family: 'Press Start 2P', monospace;
-  font-size: 11px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.6), 0 0 12px rgba(0,255,200,0.06);
+  font-size: 7px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.8), inset 0 2px 4px rgba(255,255,255,0.1);
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  transition: all 0.1s;
 }
 
-/* Controller at bottom */
+.tv-button:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.9), inset 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Power LED indicator */
+.power-led {
+  position: absolute;
+  bottom: 20px;
+  right: 30px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ff4444, #aa0000);
+  box-shadow: 0 0 8px rgba(255,0,0,0.8), inset 0 1px 2px rgba(255,100,100,0.5);
+  animation: powerPulse 2s ease-in-out infinite;
+}
+
+@keyframes powerPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Controller panel integrated below TV */
 .controller-area {
   position: relative;
-  margin: 14px auto 0;
-  left: 0;
-  transform: none;
+  margin: 30px auto 0;
+  padding: 30px 40px;
+  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 2px 4px rgba(255,255,255,0.05);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  justify-content: center;
   z-index: 40;
   width: fit-content;
+  border: 4px solid #0f0f0f;
+  /* Prevent text selection on touch */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  /* Improve touch responsiveness */
+  touch-action: manipulation;
 }
 
 /* Main controls row (D-pad, center buttons, face buttons) */
 .main-controls-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 30px;
   justify-content: center;
+  padding: 10px 0;
 }
 
 .dpad {
-  width: 110px; /* Increased from 96px */
-  height: 110px;
-  background: url('/dpad.png') center/contain no-repeat;
+  width: 120px;
+  height: 120px;
   position: relative;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
   flex-shrink: 0;
+  background: #1a1a1a;
+  border-radius: 8px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 2px 4px rgba(255,255,255,0.05);
+  /* Better touch feedback */
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+/* D-pad cross shape */
+.dpad::before,
+.dpad::after {
+  content: '';
+  position: absolute;
+  background: linear-gradient(180deg, #333, #222);
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+}
+
+.dpad::before {
+  /* Vertical bar */
+  left: 50%;
+  top: 10%;
+  transform: translateX(-50%);
+  width: 35%;
+  height: 80%;
+  border-radius: 4px;
+}
+
+.dpad::after {
+  /* Horizontal bar */
+  top: 50%;
+  left: 10%;
+  transform: translateY(-50%);
+  width: 80%;
+  height: 35%;
+  border-radius: 4px;
 }
 
 /* Four directional touch zones overlaying the D-pad (visual indicators only) */
@@ -282,98 +552,84 @@ body {
 
 .face-buttons {
   position: relative;
-  width: 160px; /* Increased from 140px */
-  height: 160px;
+  width: 180px;
+  height: 180px;
   flex-shrink: 0;
 }
 .face-button {
   position: absolute;
-  width: 64px; /* Increased from 56px */
-  height: 64px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-family: 'Press Start 2P', monospace;
-  font-size: 13px; /* Increased from 12px */
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  font-size: 14px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.8), inset 0 2px 4px rgba(255,255,255,0.2);
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  border: 3px solid rgba(0,0,0,0.3);
+  /* Better touch response */
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.1s;
+  /* Prevent tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
 }
 .face-button:active, .face-button.pressed {
-  transform: scale(0.95);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.7) inset;
-  opacity: 0.95;
+  transform: scale(0.93);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.9) inset;
+  opacity: 0.9;
 }
 
-.dpad:active, .dpad.pressed { opacity: 0.9; transform: scale(0.98); }
-.face-button.y { left: 50%; top: 0; transform: translate(-50%, 0); background: linear-gradient(180deg,#8dff6b,#57ff3b); }
-.face-button.x { left: 0; top: 50%; transform: translate(0, -50%); background: linear-gradient(180deg,#6bafff,#3b8bff); }
-.face-button.a { right: 0; top: 50%; transform: translate(0, -50%); background: linear-gradient(180deg,#ff6b6b,#ff3b3b); }
-.face-button.b { left: 50%; bottom: 0; transform: translate(-50%, 0); background: linear-gradient(180deg,#ffd66b,#ffb33b); }
+.dpad:active, .dpad.pressed { opacity: 0.85; }
+/* Red buttons matching the image */
+.face-button.y { left: 50%; top: 0; transform: translate(-50%, 0); background: radial-gradient(circle at 30% 30%, #ff5555, #cc0000); }
+.face-button.x { left: 0; top: 50%; transform: translate(0, -50%); background: radial-gradient(circle at 30% 30%, #ff5555, #cc0000); }
+.face-button.a { right: 0; top: 50%; transform: translate(0, -50%); background: radial-gradient(circle at 30% 30%, #ff5555, #cc0000); }
+.face-button.b { left: 50%; bottom: 0; transform: translate(-50%, 0); background: radial-gradient(circle at 30% 30%, #ff5555, #cc0000); }
 
-/* Shoulder buttons (L/R) */
+/* Shoulder buttons (L/R) - hidden in this design */
 .shoulder-buttons {
-  display: flex;
-  gap: 120px;
-  margin-bottom: 4px;
-  width: 100%;
-  justify-content: center;
-}
-.shoulder-button {
-  width: 72px; /* Increased from 64px */
-  height: 36px; /* Increased from 32px */
-  border-radius: 8px 8px 0 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 11px; /* Increased from 10px */
-  background: linear-gradient(180deg, #666, #444);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-.shoulder-button:active, .shoulder-button.pressed {
-  transform: scale(0.95);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.7) inset;
-  opacity: 0.95;
+  display: none;
 }
 
-/* Center buttons (Start/Select) */
+/* Center buttons (Start/Select) - styled as rounded rectangles */
 .center-buttons {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 12px;
   justify-content: center;
   flex-shrink: 0;
+  align-items: center;
 }
 .center-button {
-  width: 76px; /* Increased from 68px */
-  height: 24px; /* Increased from 20px */
-  border-radius: 12px;
+  width: 90px;
+  height: 32px;
+  border-radius: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: #ccc;
   font-family: 'Press Start 2P', monospace;
-  font-size: 7px; /* Increased from 6px */
-  background: linear-gradient(180deg, #555, #333);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.6);
+  font-size: 8px;
+  background: linear-gradient(180deg, #3a3a3a, #222);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.8), inset 0 1px 2px rgba(255,255,255,0.1);
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  border: 2px solid #1a1a1a;
+  /* Mobile touch improvements */
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, opacity 0.1s;
 }
 .center-button:active, .center-button.pressed {
   transform: scale(0.95);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.7) inset;
-  opacity: 0.95;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.9) inset;
+  opacity: 0.9;
 }
 
 /* Side control panel */
@@ -473,6 +729,8 @@ body {
   gap: 24px;
   align-items: flex-start;
   justify-content: center;
+  width: 100%;
+  max-width: 100%;
 }
 
 .tv-area { flex: 0 0 auto; }

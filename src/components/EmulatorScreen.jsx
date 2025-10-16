@@ -16,7 +16,136 @@ import JSZip from 'jszip';
   - The component cleans up by calling `exit()` on unmount.
 */
 
-export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sfc' }) {
+// Auto-detect console from ROM file extension
+const detectConsoleFromFile = (filename) => {
+  const ext = filename.toLowerCase().match(/\.([^.]+)$/)?.[1];
+  console.log(`Detecting console for file: ${filename}, extension: ${ext}`);
+  
+  const consoleMap = {
+    // Nintendo - SNES
+    'smc': { core: 'snes9x', extensions: '.smc,.sfc,.fig,.swc' },
+    'sfc': { core: 'snes9x', extensions: '.smc,.sfc,.fig,.swc' },
+    'fig': { core: 'snes9x', extensions: '.smc,.sfc,.fig,.swc' },
+    'swc': { core: 'snes9x', extensions: '.smc,.sfc,.fig,.swc' },
+    
+    // Nintendo - NES (must come before other systems)
+    'nes': { core: 'fceumm', extensions: '.nes,.unf,.unif' },
+    'unf': { core: 'fceumm', extensions: '.nes,.unf,.unif' },
+    'unif': { core: 'fceumm', extensions: '.nes,.unf,.unif' },
+    
+    // Nintendo - Game Boy Advance
+    'gba': { core: 'mgba', extensions: '.gba,.agb' },
+    'agb': { core: 'mgba', extensions: '.gba,.agb' },
+    
+    // Nintendo - Game Boy Color
+    'gbc': { core: 'gambatte', extensions: '.gbc' },
+    
+    // Nintendo - Game Boy
+    'gb': { core: 'gambatte', extensions: '.gb' },
+    
+    // Nintendo - N64
+    'n64': { core: 'mupen64plus_next', extensions: '.n64,.z64,.v64' },
+    'z64': { core: 'mupen64plus_next', extensions: '.n64,.z64,.v64' },
+    'v64': { core: 'mupen64plus_next', extensions: '.n64,.z64,.v64' },
+    
+    // Nintendo - Nintendo DS
+    'nds': { core: 'melonds', extensions: '.nds' },
+    
+    // Sega - Genesis/Mega Drive
+    'md': { core: 'genesis_plus_gx', extensions: '.md,.gen,.smd,.bin' },
+    'gen': { core: 'genesis_plus_gx', extensions: '.md,.gen,.smd,.bin' },
+    'smd': { core: 'genesis_plus_gx', extensions: '.md,.gen,.smd,.bin' },
+    
+    // Sega - Master System
+    'sms': { core: 'genesis_plus_gx', extensions: '.sms' },
+    
+    // Sega - Game Gear
+    'gg': { core: 'genesis_plus_gx', extensions: '.gg' },
+    
+    // Sega - CD (requires BIOS)
+    'cue': { core: 'genesis_plus_gx', extensions: '.cue,.chd,.iso' },
+    'chd': { core: 'genesis_plus_gx', extensions: '.cue,.chd,.iso' },
+    'iso': { core: 'genesis_plus_gx', extensions: '.cue,.chd,.iso' },
+    
+    // Sega - 32X
+    '32x': { core: 'picodrive', extensions: '.32x,.bin' },
+    
+    // Sega - Saturn (requires BIOS)
+    'ccd': { core: 'yabause', extensions: '.cue,.ccd,.chd,.iso' },
+    
+    // Sony - PlayStation
+    'cue': { core: 'pcsx_rearmed', extensions: '.cue,.chd,.pbp,.bin' },
+    'pbp': { core: 'pcsx_rearmed', extensions: '.cue,.chd,.pbp,.bin' },
+    
+    // Atari - 2600
+    'a26': { core: 'stella', extensions: '.a26,.bin' },
+    
+    // Atari - 7800
+    'a78': { core: 'prosystem', extensions: '.a78' },
+    
+    // Atari - Lynx
+    'lnx': { core: 'handy', extensions: '.lnx,.o' },
+    'o': { core: 'handy', extensions: '.lnx,.o' },
+    
+    // Atari - Jaguar
+    'j64': { core: 'virtualjaguar', extensions: '.j64,.jag' },
+    'jag': { core: 'virtualjaguar', extensions: '.j64,.jag' },
+    
+    // PC Engine / TurboGrafx-16
+    'pce': { core: 'mednafen_pce_fast', extensions: '.pce,.sgx' },
+    'sgx': { core: 'mednafen_pce_fast', extensions: '.pce,.sgx' },
+    
+    // Neo Geo Pocket
+    'ngp': { core: 'mednafen_ngp', extensions: '.ngp,.ngc' },
+    'ngc': { core: 'mednafen_ngp', extensions: '.ngp,.ngc' },
+    
+    // WonderSwan
+    'ws': { core: 'mednafen_wswan', extensions: '.ws,.wsc' },
+    'wsc': { core: 'mednafen_wswan', extensions: '.ws,.wsc' },
+    
+    // Virtual Boy
+    'vb': { core: 'mednafen_vb', extensions: '.vb,.vboy' },
+    'vboy': { core: 'mednafen_vb', extensions: '.vb,.vboy' },
+    
+    // Arcade - MAME (only for arcade ROMs, not for zipped console ROMs)
+    // Note: ZIP files are handled separately to extract and detect the actual ROM inside
+    
+    // MSX
+    'rom': { core: 'bluemsx', extensions: '.rom,.mx1,.mx2,.dsk' },
+    'mx1': { core: 'bluemsx', extensions: '.rom,.mx1,.mx2,.dsk' },
+    'mx2': { core: 'bluemsx', extensions: '.rom,.mx1,.mx2,.dsk' },
+    'dsk': { core: 'bluemsx', extensions: '.rom,.mx1,.mx2,.dsk' },
+    
+    // Commodore 64
+    'd64': { core: 'vice_x64', extensions: '.d64,.t64,.prg' },
+    't64': { core: 'vice_x64', extensions: '.d64,.t64,.prg' },
+    'prg': { core: 'vice_x64', extensions: '.d64,.t64,.prg' },
+    
+    // Amstrad CPC
+    'cdt': { core: 'cap32', extensions: '.cdt,.dsk' },
+    
+    // 3DO
+    'iso': { core: 'opera', extensions: '.iso,.cue,.chd' },
+    
+    // Vectrex
+    'vec': { core: 'vecx', extensions: '.vec,.gam,.bin' },
+    'gam': { core: 'vecx', extensions: '.vec,.gam,.bin' },
+    
+    // Default fallback
+    'bin': { core: 'snes9x', extensions: '.bin' },
+  };
+  
+  const detected = consoleMap[ext];
+  if (detected) {
+    console.log(`Detected extension: ${ext} -> Core: ${detected.core}`);
+    return detected;
+  }
+  
+  console.log(`Unknown extension: ${ext}, defaulting to SNES`);
+  return { core: 'snes9x', extensions: '.smc,.sfc' };
+};
+
+export default function EmulatorScreen({ core: initialCore = 'snes9x', extensions: initialExtensions = '.smc,.sfc' }) {
   const containerRef = useRef(null);
   const nostalgistRef = useRef(null);
   const romInputRef = useRef(null);
@@ -24,6 +153,22 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
   const [status, setStatus] = useState('idle'); // idle | loading | running | error
   const [errorMessage, setErrorMessage] = useState(null);
   const [errorDetails, setErrorDetails] = useState(null);
+  const [core, setCore] = useState(initialCore);
+  const [extensions, setExtensions] = useState(initialExtensions);
+  
+  // Sound effects
+  const playSound = (soundFile) => {
+    try {
+      const audio = new Audio(soundFile);
+      audio.volume = 0.3; // 30% volume so it's not too loud
+      audio.play().catch(e => {
+        // Silently fail if sound file not found
+        console.debug('Could not play sound:', soundFile, e);
+      });
+    } catch (e) {
+      console.debug('Sound error:', e);
+    }
+  };
   // Control mappings: support player 1 and player 2. Each mapping maps
   // logical control names to keyboard `code` strings (e.g. 'KeyK', 'ArrowUp').
   const defaultMappings = {
@@ -77,11 +222,19 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
   const [activeButtons, setActiveButtons] = useState({ p1: {}, p2: {} });
   // Track which D-pad direction is currently active for continuous sliding
   const activeDpadDirection = useRef(null);
+  // Track gamepad state to detect button press/release changes
+  const gamepadState = useRef({ buttons: {}, axes: {} });
+  // Track connected gamepads
+  const [connectedGamepads, setConnectedGamepads] = useState([]);
 
   // Launch Nostalgist with a File object (ROM)
-  const launchWithRomFile = async (file) => {
+  const launchWithRomFile = async (file, detectedCore = null) => {
     if (!file) return;
     setStatus('loading');
+
+    // Use detected core if provided, otherwise use state
+    const coreToUse = detectedCore || core;
+    console.log(`Launching emulator with core: ${coreToUse}`);
 
     try {
       // Detect if we're on mobile for performance optimizations
@@ -96,7 +249,7 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
       }
       
       nostalgistRef.current = await Nostalgist.launch({
-        core: core,
+        core: coreToUse,
         element: canvas,
         rom: file,
         // Mobile-specific performance optimizations
@@ -218,17 +371,42 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
     try {
       const zip = await JSZip.loadAsync(zipFile);
       
-      // Get list of valid ROM extensions for current core
-      const validExtensions = extensions.split(',').map(ext => ext.trim().toLowerCase());
+      // List of all known ROM extensions (not just current core)
+      const allRomExtensions = [
+        '.smc', '.sfc', '.fig', '.swc', // SNES
+        '.nes', '.unf', '.unif', // NES
+        '.gba', '.agb', // GBA
+        '.gbc', '.gb', // GB/GBC
+        '.n64', '.z64', '.v64', // N64
+        '.nds', // DS
+        '.md', '.gen', '.smd', // Genesis
+        '.sms', '.gg', // SMS/GG
+        '.cue', '.chd', '.iso', '.pbp', // CD-based
+        '.32x', // 32X
+        '.a26', '.a78', // Atari
+        '.lnx', '.o', // Lynx
+        '.j64', '.jag', // Jaguar
+        '.pce', '.sgx', // PC Engine
+        '.ngp', '.ngc', // Neo Geo Pocket
+        '.ws', '.wsc', // WonderSwan
+        '.vb', '.vboy', // Virtual Boy
+        '.rom', '.mx1', '.mx2', // MSX
+        '.d64', '.t64', '.prg', // C64
+        '.cdt', '.dsk', // Amstrad/MSX
+        '.vec', '.gam', // Vectrex
+        '.bin' // Generic
+      ];
       
       // Find the first file with a valid ROM extension
       let romFile = null;
       for (const [filename, file] of Object.entries(zip.files)) {
         if (!file.dir) {
           const ext = '.' + filename.split('.').pop().toLowerCase();
-          if (validExtensions.includes(ext)) {
+          console.log(`Checking file in ZIP: ${filename}, extension: ${ext}`);
+          if (allRomExtensions.includes(ext)) {
             const blob = await file.async('blob');
             romFile = new File([blob], filename, { type: 'application/octet-stream' });
+            console.log(`Found ROM in ZIP: ${filename}`);
             break;
           }
         }
@@ -250,18 +428,31 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     
+    // Auto-detect console from file extension
+    const detected = detectConsoleFromFile(f.name);
+    console.log(`Auto-detected console: ${detected.core} for file: ${f.name}`);
+    setCore(detected.core);
+    setExtensions(detected.extensions);
+    
     // Check if it's a ZIP file
     if (f.name.toLowerCase().endsWith('.zip')) {
       try {
         setStatus('loading');
         const romFile = await extractRomFromZip(f);
-        await launchWithRomFile(romFile);
+        // Re-detect from extracted ROM file
+        const detectedFromRom = detectConsoleFromFile(romFile.name);
+        console.log(`Auto-detected from ZIP contents: ${detectedFromRom.core}`);
+        setCore(detectedFromRom.core);
+        setExtensions(detectedFromRom.extensions);
+        // Pass detected core directly to avoid async state issues
+        await launchWithRomFile(romFile, detectedFromRom.core);
       } catch (err) {
         setErrorMessage('Failed to extract ROM from ZIP: ' + err.message);
         setStatus('error');
       }
     } else {
-      await launchWithRomFile(f);
+      // Pass detected core directly to avoid async state issues
+      await launchWithRomFile(f, detected.core);
     }
   };
 
@@ -345,22 +536,51 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
   useEffect(() => {
     const onInput = (e) => {
       const { control, type, player } = e.detail || {};
-      if (!nostalgistRef.current) return;
+      console.log(`Input event received: ${control} ${type} ${player}`);
+      
+      if (!nostalgistRef.current) {
+        console.log('No nostalgist instance available');
+        return;
+      }
+      
+      // Try 1-based indexing: 1 = Player 1, 2 = Player 2
+      const playerIndex = player === 'p2' ? 2 : 1;
+      console.log(`Sending to emulator: ${control} (${type}) for player ${player} (index: ${playerIndex})`);
+      
       try {
-        // Prefer `pressDown` / `pressUp` if available (documented instance methods)
-        if (type === 'down' && typeof nostalgistRef.current.pressDown === 'function') {
-          nostalgistRef.current.pressDown(player === 'p2' ? `P2_${control}` : control);
+        // Try different methods to send player-specific input
+        
+        // Method 1: Try press with full payload including player
+        if (typeof nostalgistRef.current.press === 'function') {
+          console.log('Using press method with player payload');
+          nostalgistRef.current.press({ 
+            control, 
+            type, 
+            player: playerIndex 
+          });
+        }
+        // Method 2: Try pressDown/pressUp with player index
+        else if (type === 'down' && typeof nostalgistRef.current.pressDown === 'function') {
+          console.log('Using pressDown method');
+          nostalgistRef.current.pressDown(control, playerIndex);
         } else if (type === 'up' && typeof nostalgistRef.current.pressUp === 'function') {
-          nostalgistRef.current.pressUp(player === 'p2' ? `P2_${control}` : control);
-        } else if (typeof nostalgistRef.current.press === 'function') {
-          // fallback: call press with payload
-          nostalgistRef.current.press({ control, type, player });
-        } else if (typeof nostalgistRef.current.sendCommand === 'function') {
-          // advanced API: sendCommand
-          nostalgistRef.current.sendCommand({ type: 'input', control, action: type, player });
+          console.log('Using pressUp method');
+          nostalgistRef.current.pressUp(control, playerIndex);
+        }
+        // Method 3: Try sendCommand
+        else if (typeof nostalgistRef.current.sendCommand === 'function') {
+          console.log('Using sendCommand method');
+          nostalgistRef.current.sendCommand({ 
+            type: 'input', 
+            control, 
+            action: type, 
+            player: playerIndex 
+          });
+        } else {
+          console.log('No input method available on nostalgist instance');
         }
       } catch (err) {
-        // ignore errors from optional APIs
+        console.error('Error sending input to emulator:', err);
       }
     };
 
@@ -402,14 +622,24 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
     }
   };
 
+
   // Save state: call Nostalgist.saveState() and download the returned data as a blob
   const saveState = async () => {
     const n = nostalgistRef.current;
-    if (!n || typeof n.saveState !== 'function') return alert('Save state not supported by this core build');
+    
+    if (!n) {
+      alert('Please load a ROM first');
+      return;
+    }
+    
+    if (typeof n.saveState !== 'function') {
+      alert('Save state not supported by this core');
+      return;
+    }
 
     try {
-      // saveState may return ArrayBuffer, Uint8Array, or Blob depending on implementation
       const stateData = await n.saveState();
+      
       let blob = null;
       if (stateData instanceof Blob) {
         blob = stateData;
@@ -430,38 +660,58 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      alert('State saved!');
     } catch (err) {
       console.error('Save state failed:', err);
-      alert('Failed to save state');
+      alert('Failed to save state: ' + err.message);
     }
   };
 
-  // Load state: reads a .state file and passes its ArrayBuffer to Nostalgist.loadState()
+  // Load state: reads a .state file and passes it to Nostalgist.loadState()
   const onLoadStateFile = async (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
-    if (!nostalgistRef.current || typeof nostalgistRef.current.loadState !== 'function') {
-      return alert('Load state not supported by this core build');
+    
+    const n = nostalgistRef.current;
+    if (!n) {
+      alert('Please load a ROM first');
+      return;
+    }
+    
+    if (typeof n.loadState !== 'function') {
+      alert('Load state not supported by this core');
+      return;
     }
 
     try {
-      const buffer = await f.arrayBuffer();
-      await nostalgistRef.current.loadState(buffer);
-      alert('State loaded');
+      // Try loading as a File object first (Nostalgist might accept File directly)
+      try {
+        await n.loadState(f);
+        alert('State loaded!');
+        return;
+      } catch (fileErr) {
+        // Fallback to ArrayBuffer
+        const buffer = await f.arrayBuffer();
+        await n.loadState(buffer);
+        alert('State loaded!');
+      }
     } catch (err) {
       console.error('Load state failed:', err);
-      alert('Failed to load state');
+      alert('Failed to load state: ' + err.message);
     }
   };
 
-  // Auto-trigger ROM picker on first load if no ROM is loaded
+  // Auto-trigger ROM picker on first load if no ROM is loaded (desktop only)
   useEffect(() => {
     if (status === 'idle') {
-      // Small delay to let the component render first
-      const timer = setTimeout(() => {
-        triggerRomPicker();
-      }, 300);
-      return () => clearTimeout(timer);
+      // Only auto-trigger on desktop, not mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (!isMobile) {
+        const timer = setTimeout(() => {
+          triggerRomPicker();
+        }, 300);
+        return () => clearTimeout(timer);
+      }
     }
   }, []);
 
@@ -482,66 +732,223 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
   }, []);
 
   // Gamepad handling: poll connected gamepads and forward inputs
-  // Only poll if gamepads are actually connected to save resources
+  // Standard gamepad button mapping (based on standard gamepad layout)
+  const GAMEPAD_MAPPING = {
+    // Face buttons (Xbox: A=0, B=1, X=2, Y=3 | PlayStation: X=0, O=1, Square=2, Triangle=3)
+    0: 'b',      // A/Cross -> SNES B
+    1: 'a',      // B/Circle -> SNES A
+    2: 'x',      // X/Square -> SNES X (swapped)
+    3: 'y',      // Y/Triangle -> SNES Y (swapped)
+    // Shoulder buttons
+    4: 'l',      // LB/L1 -> SNES L
+    5: 'r',      // RB/R1 -> SNES R
+    6: 'l',      // LT/L2 -> SNES L (alternative)
+    7: 'r',      // RT/R2 -> SNES R (alternative)
+    // Center buttons
+    8: 'select', // Select/Share
+    9: 'start',  // Start/Options
+    // D-pad (if available as buttons)
+    12: 'up',
+    13: 'down',
+    14: 'left',
+    15: 'right',
+  };
+
   useEffect(() => {
     let intervalId = null;
     let hasGamepad = false;
 
     const checkGamepads = () => {
       const gps = navigator.getGamepads ? navigator.getGamepads() : [];
-      hasGamepad = gps.some(gp => gp !== null);
+      const connected = [];
+      for (let i = 0; i < gps.length; i++) {
+        if (gps[i]) {
+          connected.push({ index: i, id: gps[i].id });
+        }
+      }
+      hasGamepad = connected.length > 0;
+      setConnectedGamepads(connected);
     };
 
     const pollGamepad = () => {
-      if (!hasGamepad) return; // Skip if no gamepad connected
+      if (!hasGamepad) return;
+      // Only process gamepad input if emulator is running
+      if (status === 'running' && !nostalgistRef.current) return;
       
       const gps = navigator.getGamepads ? navigator.getGamepads() : [];
       for (const gp of gps) {
         if (!gp) continue;
-        // Map first controller buttons to SNES buttons (simple example)
-        // Button indices vary by controller; this is a best-effort mapping.
+        
+        // Determine player (gamepad 0 = p1, gamepad 1 = p2)
+        const player = gp.index === 0 ? 'p1' : 'p2';
+        const playerNum = gp.index === 0 ? 1 : 2;
+        
+        // Initialize state for this gamepad if needed
+        if (!gamepadState.current.buttons[gp.index]) {
+          gamepadState.current.buttons[gp.index] = {};
+        }
+        if (!gamepadState.current.axes[gp.index]) {
+          gamepadState.current.axes[gp.index] = { up: false, down: false, left: false, right: false };
+        }
+        
+        // Process buttons
         gp.buttons.forEach((btn, idx) => {
-          if (btn.pressed) {
-            // Dispatch pressed event per mapping
-            window.dispatchEvent(new CustomEvent('snes:gamepad-button', { detail: { index: idx, pressed: true } }));
-            // also show visual feedback
-            setActiveButtons((prev) => {
-              const copy = { p1: { ...prev.p1 }, p2: { ...prev.p2 } };
-              // assume gamepad 0 -> p1, 1 -> p2
-              const owner = gp.index === 0 ? 'p1' : 'p2';
-              copy[owner][`b${idx}`] = true;
-              return copy;
-            });
-          } else {
-            setActiveButtons((prev) => {
-              const copy = { p1: { ...prev.p1 }, p2: { ...prev.p2 } };
-              const owner = gp.index === 0 ? 'p1' : 'p2';
-              copy[owner][`b${idx}`] = false;
-              return copy;
-            });
+          const snesButton = GAMEPAD_MAPPING[idx];
+          if (!snesButton) return;
+          
+          const wasPressed = gamepadState.current.buttons[gp.index][idx];
+          const isPressed = btn.pressed || btn.value > 0.5;
+          
+          // Only dispatch events on state change
+          if (isPressed && !wasPressed) {
+            // Button pressed
+            console.log(`Gamepad ${gp.index} button pressed: ${snesButton} -> ${player} (playerNum: ${playerNum})`);
+            window.dispatchEvent(new CustomEvent('snes:input', { 
+              detail: { control: snesButton, type: 'down', player } 
+            }));
+            setActiveButtons((prev) => ({
+              ...prev,
+              [player]: { ...(prev[player] || {}), [snesButton]: true }
+            }));
+          } else if (!isPressed && wasPressed) {
+            // Button released
+            window.dispatchEvent(new CustomEvent('snes:input', { 
+              detail: { control: snesButton, type: 'up', player } 
+            }));
+            setActiveButtons((prev) => ({
+              ...prev,
+              [player]: { ...(prev[player] || {}), [snesButton]: false }
+            }));
           }
+          
+          gamepadState.current.buttons[gp.index][idx] = isPressed;
         });
+        
+        // Process analog sticks (left stick for D-pad)
+        // axes[0] = left stick X, axes[1] = left stick Y
+        const DEADZONE = 0.25;
+        const axisX = gp.axes[0] || 0;
+        const axisY = gp.axes[1] || 0;
+        
+        const axisState = gamepadState.current.axes[gp.index];
+        
+        // Left
+        const leftActive = axisX < -DEADZONE;
+        if (leftActive && !axisState.left) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'left', type: 'down', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), left: true }
+          }));
+        } else if (!leftActive && axisState.left) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'left', type: 'up', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), left: false }
+          }));
+        }
+        axisState.left = leftActive;
+        
+        // Right
+        const rightActive = axisX > DEADZONE;
+        if (rightActive && !axisState.right) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'right', type: 'down', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), right: true }
+          }));
+        } else if (!rightActive && axisState.right) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'right', type: 'up', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), right: false }
+          }));
+        }
+        axisState.right = rightActive;
+        
+        // Up
+        const upActive = axisY < -DEADZONE;
+        if (upActive && !axisState.up) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'up', type: 'down', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), up: true }
+          }));
+        } else if (!upActive && axisState.up) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'up', type: 'up', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), up: false }
+          }));
+        }
+        axisState.up = upActive;
+        
+        // Down
+        const downActive = axisY > DEADZONE;
+        if (downActive && !axisState.down) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'down', type: 'down', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), down: true }
+          }));
+        } else if (!downActive && axisState.down) {
+          window.dispatchEvent(new CustomEvent('snes:input', { 
+            detail: { control: 'down', type: 'up', player } 
+          }));
+          setActiveButtons((prev) => ({
+            ...prev,
+            [player]: { ...(prev[player] || {}), down: false }
+          }));
+        }
+        axisState.down = downActive;
       }
     };
 
     // Check for gamepads on connect/disconnect
-    window.addEventListener('gamepadconnected', checkGamepads);
-    window.addEventListener('gamepaddisconnected', checkGamepads);
+    const onGamepadConnected = (e) => {
+      console.log('Gamepad connected:', e.gamepad.id);
+      checkGamepads();
+    };
+    
+    const onGamepadDisconnected = (e) => {
+      console.log('Gamepad disconnected:', e.gamepad.id);
+      checkGamepads();
+    };
+    
+    window.addEventListener('gamepadconnected', onGamepadConnected);
+    window.addEventListener('gamepaddisconnected', onGamepadDisconnected);
     checkGamepads();
 
     // Poll every 16ms (~60fps) only if gamepad is connected
     intervalId = setInterval(pollGamepad, 16);
     return () => {
       clearInterval(intervalId);
-      window.removeEventListener('gamepadconnected', checkGamepads);
-      window.removeEventListener('gamepaddisconnected', checkGamepads);
+      window.removeEventListener('gamepadconnected', onGamepadConnected);
+      window.removeEventListener('gamepaddisconnected', onGamepadDisconnected);
     };
-  }, []);
+  }, [status]); // Re-run when status changes to ensure gamepad works when emulator starts
 
   // Pointer/touch handlers for on-screen controls
   const handleVirtualPress = (buttonName, player = 'p1') => {
     // visual feedback
-    setActiveButtons((prev) => ({ ...prev, [player]: { ...(prev[player] || {}), [buttonName]: true } }));
+    setActiveButtons((prev) => ({
+      ...prev,
+      [player]: { ...(prev[player] || {}), [buttonName]: true }
+    }));
     // send pressDown to Nostalgist using central mapping module
     const id = toCoreId(buttonName, player === 'p2' ? 2 : 1);
     try {
@@ -640,10 +1047,13 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="text-center px-6">
                       <div className="text-[#8effd6] text-sm mb-3" style={{ fontFamily: "'Press Start 2P', monospace", textShadow: '0 0 10px rgba(102,255,204,0.6)' }}>
-                        No ROM Loaded
+                        Retro Emulator
                       </div>
                       <div className="text-[#9afbd8]/70 text-xs" style={{ fontFamily: "'Press Start 2P', monospace" }}>
-                        Click "Load ROM" above
+                        Load any ROM file to start
+                      </div>
+                      <div className="text-[#9afbd8]/50 text-[10px] mt-2" style={{ fontFamily: "'Press Start 2P', monospace" }}>
+                        Supports SNES, NES, GBA, Genesis & more
                       </div>
                     </div>
                   </div>
@@ -652,34 +1062,32 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
             </div>
           </div>
 
-          {/* buttons above the CRT (positioned via CSS) */}
+          {/* Power LED indicator */}
+          {status === 'running' && <div className="power-led" title="Power On"></div>}
+
+          {/* Control buttons below TV screen */}
           <div className="tv-buttons">
-            <button className="tv-button" onClick={triggerRomPicker}>Load ROM</button>
-            <button className="tv-button" onClick={toggleFullscreen}>Full Screen</button>
-            <button className="tv-button" onClick={saveState}>Save State</button>
-            <button className="tv-button" onClick={() => loadStateInputRef.current && loadStateInputRef.current.click()}>Load State</button>
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); triggerRomPicker(); }} title="Load ROM">
+              <span style={{ fontSize: '14px' }}>⏏</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
+            </button>
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); toggleFullscreen(); }} title="Fullscreen">
+              <span style={{ fontSize: '14px' }}>⛶</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>FULL</div>
+            </button>
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); saveState(); }} title="Save State">
+              <span style={{ fontSize: '14px' }}>💾</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>SAVE</div>
+            </button>
+            <button className="tv-button" onClick={() => { playSound('/UI SELECT.wav'); loadStateInputRef.current && loadStateInputRef.current.click(); }} title="Load State">
+              <span style={{ fontSize: '14px' }}>📂</span>
+              <div style={{ fontSize: '6px', marginTop: '2px' }}>LOAD</div>
+            </button>
           </div>
 
-          {/* controller below the TV frame (centered) */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+          {/* Controller panel below the TV */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 0 }}>
             <div className="controller-area" aria-hidden>
-              {/* Shoulder buttons */}
-              <div className="shoulder-buttons">
-                <div
-                  className={`shoulder-button l ${activeButtons.p1?.l ? 'pressed' : ''}`}
-                  onPointerDown={() => handleVirtualPress('l')}
-                  onPointerUp={() => handleVirtualRelease('l')}
-                  onTouchStart={() => handleVirtualPress('l')}
-                  onTouchEnd={() => handleVirtualRelease('l')}
-                >L</div>
-                <div
-                  className={`shoulder-button r ${activeButtons.p1?.r ? 'pressed' : ''}`}
-                  onPointerDown={() => handleVirtualPress('r')}
-                  onPointerUp={() => handleVirtualRelease('r')}
-                  onTouchStart={() => handleVirtualPress('r')}
-                  onTouchEnd={() => handleVirtualRelease('r')}
-                >R</div>
-              </div>
 
               {/* Main controls row */}
               <div className="main-controls-row">
@@ -696,59 +1104,64 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
                   onTouchCancel={handleDpadEnd}
                 >
                   {/* Visual indicators for active directions */}
-                  <div className={`dpad-zone up ${activeButtons.p1?.up ? 'pressed' : ''}`} />
-                  <div className={`dpad-zone down ${activeButtons.p1?.down ? 'pressed' : ''}`} />
-                  <div className={`dpad-zone left ${activeButtons.p1?.left ? 'pressed' : ''}`} />
-                  <div className={`dpad-zone right ${activeButtons.p1?.right ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone up ${(activeButtons.p1?.up || activeButtons.p2?.up) ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone down ${(activeButtons.p1?.down || activeButtons.p2?.down) ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone left ${(activeButtons.p1?.left || activeButtons.p2?.left) ? 'pressed' : ''}`} />
+                  <div className={`dpad-zone right ${(activeButtons.p1?.right || activeButtons.p2?.right) ? 'pressed' : ''}`} />
                 </div>
 
-                {/* Center buttons (Start/Select) */}
-                <div className="center-buttons">
-                  <div
-                    className={`center-button select ${activeButtons.p1?.select ? 'pressed' : ''}`}
-                    onPointerDown={() => handleVirtualPress('select')}
-                    onPointerUp={() => handleVirtualRelease('select')}
-                    onTouchStart={() => handleVirtualPress('select')}
-                    onTouchEnd={() => handleVirtualRelease('select')}
-                  >SELECT</div>
-                  <div
-                    className={`center-button start ${activeButtons.p1?.start ? 'pressed' : ''}`}
-                    onPointerDown={() => handleVirtualPress('start')}
-                    onPointerUp={() => handleVirtualRelease('start')}
-                    onTouchStart={() => handleVirtualPress('start')}
-                    onTouchEnd={() => handleVirtualRelease('start')}
-                  >START</div>
+                {/* Center buttons (Start/Select) with label */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <div className="center-buttons">
+                    <div
+                      className={`center-button select ${(activeButtons.p1?.select || activeButtons.p2?.select) ? 'pressed' : ''}`}
+                      onPointerDown={() => { playSound('/UI SELECT.wav'); handleVirtualPress('select'); }}
+                      onPointerUp={() => handleVirtualRelease('select')}
+                      onTouchStart={() => { playSound('/UI SELECT.wav'); handleVirtualPress('select'); }}
+                      onTouchEnd={() => handleVirtualRelease('select')}
+                    ></div>
+                    <div
+                      className={`center-button start ${(activeButtons.p1?.start || activeButtons.p2?.start) ? 'pressed' : ''}`}
+                      onPointerDown={() => { playSound('/UI START.wav'); handleVirtualPress('start'); }}
+                      onPointerUp={() => handleVirtualRelease('start')}
+                      onTouchStart={() => { playSound('/UI START.wav'); handleVirtualPress('start'); }}
+                      onTouchEnd={() => handleVirtualRelease('start')}
+                    ></div>
+                  </div>
+                  <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: '#888', letterSpacing: '2px' }}>
+                    START SELCT
+                  </div>
                 </div>
 
                 <div className="face-buttons">
               <div
-                className={`face-button y ${activeButtons.p1 && activeButtons.p1['y'] ? 'pressed' : ''}`}
+                className={`face-button y ${(activeButtons.p1?.y || activeButtons.p2?.y) ? 'pressed' : ''}`}
                 onPointerDown={() => handleVirtualPress('y')}
                 onPointerUp={() => handleVirtualRelease('y')}
                 onTouchStart={() => handleVirtualPress('y')}
                 onTouchEnd={() => handleVirtualRelease('y')}
-              >Y</div>
+              ></div>
               <div
-                className={`face-button x ${activeButtons.p1 && activeButtons.p1['x'] ? 'pressed' : ''}`}
+                className={`face-button x ${(activeButtons.p1?.x || activeButtons.p2?.x) ? 'pressed' : ''}`}
                 onPointerDown={() => handleVirtualPress('x')}
                 onPointerUp={() => handleVirtualRelease('x')}
                 onTouchStart={() => handleVirtualPress('x')}
                 onTouchEnd={() => handleVirtualRelease('x')}
-              >X</div>
+              ></div>
               <div
-                className={`face-button a ${activeButtons.p1 && activeButtons.p1['a'] ? 'pressed' : ''}`}
+                className={`face-button a ${(activeButtons.p1?.a || activeButtons.p2?.a) ? 'pressed' : ''}`}
                 onPointerDown={() => handleVirtualPress('a')}
                 onPointerUp={() => handleVirtualRelease('a')}
                 onTouchStart={() => handleVirtualPress('a')}
                 onTouchEnd={() => handleVirtualRelease('a')}
-              >A</div>
+              ></div>
               <div
-                className={`face-button b ${activeButtons.p1 && activeButtons.p1['b'] ? 'pressed' : ''}`}
+                className={`face-button b ${(activeButtons.p1?.b || activeButtons.p2?.b) ? 'pressed' : ''}`}
                 onPointerDown={() => handleVirtualPress('b')}
                 onPointerUp={() => handleVirtualRelease('b')}
                 onTouchStart={() => handleVirtualPress('b')}
                 onTouchEnd={() => handleVirtualRelease('b')}
-              >B</div>
+              ></div>
                 </div>
               </div>
             </div>
@@ -756,12 +1169,26 @@ export default function EmulatorScreen({ core = 'snes9x', extensions = '.smc,.sf
         </div>
 
         {/* Hidden inputs */}
-        <input ref={romInputRef} type="file" accept={`${extensions},.zip,application/octet-stream,application/zip`} className="hidden" onChange={onRomSelected} />
+        <input ref={romInputRef} type="file" accept=".smc,.sfc,.fig,.swc,.nes,.unf,.unif,.gba,.agb,.gbc,.gb,.n64,.z64,.v64,.nds,.md,.gen,.smd,.sms,.gg,.cue,.chd,.iso,.32x,.ccd,.pbp,.a26,.a78,.lnx,.o,.j64,.jag,.pce,.sgx,.ngp,.ngc,.ws,.wsc,.vb,.vboy,.rom,.mx1,.mx2,.dsk,.d64,.t64,.prg,.cdt,.vec,.gam,.bin,.zip,application/octet-stream,application/zip" className="hidden" onChange={onRomSelected} />
         <input ref={loadStateInputRef} type="file" accept=".state,application/octet-stream" className="hidden" onChange={onLoadStateFile} />
 
-        <div className="mt-3 text-xs text-[#9afbd8]/80">
-          Status: {status}
-          {status === 'idle' && <span className="ml-2">(Select a ROM file to begin)</span>}
+        {/* Mobile-friendly load ROM button (only shows when no ROM is loaded) */}
+        {status === 'idle' && (
+          <button className="mobile-load-rom" onClick={triggerRomPicker}>
+            📁 LOAD ROM
+          </button>
+        )}
+
+        <div className="status-text mt-3 text-xs text-[#9afbd8]/80">
+          <div>
+            Status: {status}
+            {status === 'idle' && <span className="ml-2">(Load any ROM to auto-detect console)</span>}
+          </div>
+          {connectedGamepads.length > 0 && (
+            <div className="mt-1">
+              🎮 {connectedGamepads.length} controller{connectedGamepads.length > 1 ? 's' : ''} connected
+            </div>
+          )}
         </div>
         {status === 'error' && (
           <div className="mt-2 p-3 bg-red-900/60 rounded text-[12px] max-w-xl">

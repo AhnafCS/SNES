@@ -1,41 +1,49 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import HomePage from './HomePage';
+import ConsolesPage from './ConsolesPage';
 import EmulatorScreen from './components/EmulatorScreen';
 
 /*
   src/App.jsx
-  - Root application component. Holds simple `screen` state that can be
-    extended into a basic router (e.g., 'home' | 'emulator').
-  - Currently renders the `HomePage` component that ships with the scaffold.
+  - Root application component with React Router for proper browser navigation.
+  - Users can now use back/forward buttons to navigate between pages.
 */
-export default function App() {
-  const [screen, setScreen] = useState('home');
-  const [selectedCore, setSelectedCore] = useState('snes9x');
-  const [selectedExtensions, setSelectedExtensions] = useState('.smc,.sfc');
 
-  const handleStart = (core, extensions) => {
-    setSelectedCore(core);
-    setSelectedExtensions(extensions);
-    setScreen('emulator');
-  };
-
+function HomePageWrapper() {
+  const navigate = useNavigate();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white">
-      {screen === 'home' && <HomePage onStart={handleStart} />}
-      {screen === 'emulator' && (
-        <div className="w-full">
-          <div className="flex justify-between items-center px-6 py-3">
-            <button
-              className="neon-button"
-              onClick={() => setScreen('home')}
-            >
-              Back
-            </button>
-          </div>
-          <EmulatorScreen core={selectedCore} extensions={selectedExtensions} />
-        </div>
-      )}
+    <HomePage 
+      onStart={() => navigate('/emulator')} 
+      onShowConsoles={() => navigate('/consoles')} 
+    />
+  );
+}
+
+function ConsolesPageWrapper() {
+  const navigate = useNavigate();
+  return <ConsolesPage onBack={() => navigate('/')} />;
+}
+
+function EmulatorPageWrapper() {
+  return (
+    <div className="w-full">
+      <EmulatorScreen core="snes9x" extensions=".smc,.sfc" />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        <Routes>
+          <Route path="/" element={<HomePageWrapper />} />
+          <Route path="/consoles" element={<ConsolesPageWrapper />} />
+          <Route path="/emulator" element={<EmulatorPageWrapper />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }
 
